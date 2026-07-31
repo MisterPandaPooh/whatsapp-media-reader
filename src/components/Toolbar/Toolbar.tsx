@@ -2,6 +2,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useChatStore } from '../../store/useChatStore'
 import type { MediaItem, MediaKind } from '../../types'
+import {
+  PRESETS,
+  addMonths,
+  presetRange,
+  rangeBetween,
+  startOfDay,
+  startOfMonth,
+  type Preset,
+} from './dateRange'
 import './Toolbar.css'
 
 const TYPES: { kind: MediaKind; label: string }[] = [
@@ -12,33 +21,10 @@ const TYPES: { kind: MediaKind; label: string }[] = [
   { kind: 'link', label: 'Links' },
 ]
 
-const PRESETS = ['All time', 'Last 7 days', 'Last 30 days', 'This month'] as const
-type Preset = (typeof PRESETS)[number]
-
-const DAY_MS = 24 * 60 * 60 * 1000
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 const shortDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
 const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
-
-function startOfDay(ms: number): number {
-  const d = new Date(ms)
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-}
-
-function endOfDay(ms: number): number {
-  return startOfDay(ms) + DAY_MS - 1
-}
-
-function startOfMonth(ms: number): number {
-  const d = new Date(ms)
-  return new Date(d.getFullYear(), d.getMonth(), 1).getTime()
-}
-
-function addMonths(ms: number, delta: number): number {
-  const d = new Date(ms)
-  return new Date(d.getFullYear(), d.getMonth() + delta, 1).getTime()
-}
 
 interface Props {
   media: MediaItem[]
@@ -147,15 +133,15 @@ export function Toolbar({ media, resultCount }: Props) {
     setFilters({ senders: current.includes(name) ? current.filter((s) => s !== name) : [...current, name] })
   }
 
-  function presetRange(preset: Preset): { dateFrom: number | null; dateTo: number | null } {
-    if (preset === 'All time') return { dateFrom: null, dateTo: null }
-    if (preset === 'Last 7 days') return { dateFrom: startOfDay(maxMs - 6 * DAY_MS), dateTo: endOfDay(maxMs) }
-    if (preset === 'Last 30 days') return { dateFrom: startOfDay(maxMs - 29 * DAY_MS), dateTo: endOfDay(maxMs) }
-    return { dateFrom: startOfMonth(maxMs), dateTo: endOfDay(maxMs) }
+  function toggleStarredOnly() {
+    setFilters({ starredOnly: !useChatStore.getState().filters.starredOnly })
   }
 
+  // Anchored to the newest item in the export rather than Date.now(); see dateRange.ts.
+  const rangeFor = (preset: Preset) => presetRange(preset, maxMs)
+
   function applyPreset(preset: Preset) {
-    setFilters(presetRange(preset))
+    setFilters(rangeFor(preset))
     setPendingStart(null)
     setDateOpen(false)
   }
@@ -163,11 +149,10 @@ export function Toolbar({ media, resultCount }: Props) {
   function pickDay(dayStart: number) {
     if (pendingStart === null) {
       setPendingStart(dayStart)
-      setFilters({ dateFrom: dayStart, dateTo: dayStart + DAY_MS - 1 })
+      setFilters(rangeBetween(dayStart, dayStart))
       return
     }
-    if (dayStart >= pendingStart) setFilters({ dateFrom: pendingStart, dateTo: dayStart + DAY_MS - 1 })
-    else setFilters({ dateFrom: dayStart, dateTo: pendingStart + DAY_MS - 1 })
+    setFilters(rangeBetween(pendingStart, dayStart))
     setPendingStart(null)
   }
 
@@ -187,7 +172,7 @@ export function Toolbar({ media, resultCount }: Props) {
   const canNextMonth = viewMonth < startOfMonth(maxMs)
 
   const activePreset = PRESETS.find((p) => {
-    const r = presetRange(p)
+    const r = rangeFor(p)
     return r.dateFrom === filters.dateFrom && r.dateTo === filters.dateTo
   })
 
@@ -323,7 +308,7 @@ export function Toolbar({ media, resultCount }: Props) {
           <div className="popover popover--date" role="dialog" aria-label="Filter by date">
             <div className="popover-list">
               {PRESETS.map((p) => {
-                const r = presetRange(p)
+                const r = rangeFor(p)
                 return (
                   <button
                     key={p}
@@ -414,7 +399,7 @@ export function Toolbar({ media, resultCount }: Props) {
         type="button"
         className={`chip chip--standalone ${filters.starredOnly ? 'chip--active' : ''}`}
         aria-pressed={filters.starredOnly}
-        onClick={() => setFilters({ starredOnly: !filters.starredOnly })}
+        onClick={toggleStarredOnly}
       >
         ★ Starred <span className="chip-count">{starredCount}</span>
       </button>
