@@ -109,10 +109,15 @@ export function Toolbar({ media, resultCount }: Props) {
         setSenderOpen(false)
         setDateOpen(false)
         setPendingStart(null)
+        // Marks the keypress as consumed for the app-level handler, which would
+        // otherwise close the detail panel with the same Escape. Capture phase
+        // guarantees this runs first: on `window`, capture always precedes the
+        // bubble listener the app shell registers, whatever the mount order.
+        e.preventDefault()
       }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [senderOpen, dateOpen])
 
   function closePopovers() {

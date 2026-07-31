@@ -37,7 +37,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   chat: null,
   filters: EMPTY_FILTERS,
   activeMediaId: null,
-  setChat: (chat) => set({ chat }),
+  // A different chat invalidates both the selection and the filters: an
+  // activeMediaId or sender filter from the previous import means nothing here.
+  setChat: (chat) => set({ chat, activeMediaId: null, filters: EMPTY_FILTERS }),
   setFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
   resetFilters: () => set({ filters: EMPTY_FILTERS }),
   openMedia: (id) => set({ activeMediaId: id }),
