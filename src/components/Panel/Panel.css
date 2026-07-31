@@ -1,0 +1,263 @@
+/* src/components/Panel/Panel.css */
+.detail-panel {
+  flex: none;
+  width: 448px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-header);
+  border-left: 1px solid var(--border);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  text-align: left;
+}
+
+/* Header ------------------------------------------------------------------ */
+.panel-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title {
+  font: 600 11.5px var(--font-sans);
+  color: var(--text-primary);
+}
+.panel-position {
+  font: 400 10.5px var(--font-mono);
+  color: var(--text-tertiary);
+}
+.panel-spacer {
+  flex: 1;
+}
+.panel-icon-btn {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: 400 12px var(--font-sans);
+  line-height: 1;
+  cursor: pointer;
+}
+.panel-icon-btn:hover:not(:disabled) {
+  background: var(--chip-bg);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.panel-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Preview card ------------------------------------------------------------ */
+.panel-preview {
+  flex: none;
+  display: flex;
+  gap: 11px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.preview-thumb {
+  flex: none;
+  width: 74px;
+  height: 74px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #e4e2dd;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-thumb img,
+.preview-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.preview-thumb-label {
+  font: 400 9.5px var(--font-mono);
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 4px;
+}
+.preview-info {
+  min-width: 0;
+  flex: 1;
+}
+.preview-caption {
+  font: 500 12.5px/1.35 var(--font-sans);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.preview-meta {
+  font: 400 10.5px/1.6 var(--font-mono);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.panel-action-btn {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-header);
+  color: var(--text-primary);
+  font: 500 11px var(--font-sans);
+  line-height: 1;
+  cursor: pointer;
+}
+.panel-action-btn:hover:not(:disabled) {
+  background: var(--chip-bg);
+}
+.panel-action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.panel-action-btn--on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.panel-error {
+  margin-top: 7px;
+  font: 400 10.5px/1.5 var(--font-mono);
+  color: #a1345c;
+}
+
+/* Conversation thread ----------------------------------------------------- */
+.thread-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  padding: 0 12px 24px;
+  background: var(--bg);
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.thread-scroll--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.thread-empty {
+  margin: 0;
+  font: 400 11.5px/1.5 var(--font-sans);
+  color: var(--text-secondary);
+  text-align: center;
+}
+.thread-sizer {
+  position: relative;
+  width: 100%;
+}
+.thread-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.day-sep {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 9px;
+}
+.day-sep span {
+  font: 400 9.5px var(--font-mono);
+  color: var(--text-secondary);
+  background: #e9e7e3;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.system-line {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
+}
+.system-line span {
+  font: 400 10px/1.45 var(--font-sans);
+  color: var(--text-secondary);
+  background: #ecebe7;
+  border-radius: 5px;
+  padding: 4px 9px;
+  max-width: 88%;
+  text-align: center;
+}
+
+.bubble-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 1.5px 0;
+}
+.bubble-row--mine {
+  justify-content: flex-end;
+}
+.bubble {
+  max-width: 82%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 9px 5px;
+  position: relative;
+  overflow-wrap: anywhere;
+}
+.bubble-row--mine .bubble {
+  background: #e7f0ff;
+}
+.bubble--anchor {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.bubble-row--mine .bubble--anchor {
+  box-shadow: inset -3px 0 0 var(--accent);
+}
+/* Outline rather than background so the flash composes with the anchor bar
+   and with the differing bubble backgrounds of own vs. others' messages. */
+.bubble--flash-a,
+.bubble--flash-b {
+  animation: bubble-flash 0.9s ease-out;
+}
+@keyframes bubble-flash {
+  0%,
+  35% {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+  }
+}
+.bubble-sender {
+  font: 600 10.5px var(--font-sans);
+  margin-bottom: 2px;
+}
+.bubble-text {
+  font: 400 12px/1.45 var(--font-sans);
+  white-space: pre-wrap;
+  color: var(--text-primary);
+}
+.bubble-time {
+  font: 400 9px var(--font-mono);
+  color: var(--text-tertiary);
+  text-align: right;
+  margin-top: 2px;
+}
