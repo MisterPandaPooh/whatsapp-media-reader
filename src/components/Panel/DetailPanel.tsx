@@ -107,11 +107,15 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
   }
 
   function handleKeyDown(e: ReactKeyboardEvent<HTMLElement>) {
-    if (e.key !== 'Escape') return
-    // Scoped to the panel subtree rather than a window listener, and the
-    // propagation stop keeps a single Escape from also reaching the Toolbar's
-    // window-level handler (React's stopPropagation stops the native event at
-    // the root container, before it can bubble to window).
+    // The Toolbar closes its popovers from a *capture*-phase window listener,
+    // which therefore runs before this one and calls preventDefault(). Honour
+    // that, or a single Escape pressed while a popover is open would both
+    // dismiss the popover and close the panel.
+    if (e.key !== 'Escape' || e.defaultPrevented) return
+    // Scoped to the panel subtree rather than a window listener. The
+    // propagation stop keeps this Escape from also reaching the app shell's
+    // bubble-phase window handler (React's stopPropagation stops the native
+    // event at the root container, before it can bubble to window).
     e.stopPropagation()
     closePanel()
   }
