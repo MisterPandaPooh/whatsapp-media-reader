@@ -38,4 +38,15 @@ describe('chatRepository', () => {
     const reloaded = await loadLastChat()
     expect(reloaded?.starred['media-1']).toBe(false)
   })
+
+  it('handles concurrent setStarred calls on different mediaIds without losing an update', async () => {
+    const chat = makeChat('chat-c')
+    await saveChat(chat)
+    await Promise.all([
+      setStarred('chat-c', 'media-1', true),
+      setStarred('chat-c', 'media-2', true),
+    ])
+    const loaded = await loadLastChat()
+    expect(loaded?.starred).toEqual({ 'media-1': true, 'media-2': true })
+  })
 })
