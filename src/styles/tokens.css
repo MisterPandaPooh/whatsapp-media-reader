@@ -1,0 +1,26 @@
+/* src/styles/tokens.css */
+:root {
+  --bg: #f4f4f3;
+  --bg-header: #fbfbfa;
+  --text-primary: #17181a;
+  --text-secondary: #82858a;
+  --text-tertiary: #9a9da1;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --accent: oklch(0.55 0.13 250);
+  --chip-bg: #eeece8;
+  --font-sans: system-ui, -apple-system, "Helvetica Neue", Helvetica, sans-serif;
+  --font-mono: ui-monospace, Menlo, monospace;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 11px;
+}
+
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
