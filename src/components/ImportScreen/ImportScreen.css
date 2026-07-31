@@ -15,9 +15,13 @@
 .import-actions { display: flex; gap: 6px; }
 .import-error { font: 400 11px/1.5 var(--font-mono); color: #b4322c; margin-top: 12px; }
 .import-file-input { display: none; }
-.btn-primary, .btn-secondary {
+.btn-primary, .btn-secondary, .btn-ghost {
   height: 28px; padding: 0 12px; border-radius: 6px; font: 500 11.5px/1 var(--font-sans); cursor: pointer;
 }
+/* Cancel: an escape hatch, deliberately the quietest control on the card. */
+.btn-ghost { background: transparent; border: 1px solid transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: #f2f1ef; color: var(--text-primary); }
+.summary-actions .btn-ghost { margin-right: auto; }
 .btn-primary { background: #1d1e20; border: 1px solid #1d1e20; color: #fff; }
 .btn-secondary { background: #fff; border: 1px solid var(--border-strong); color: #3d3f43; }
 .btn-primary:disabled { opacity: .6; cursor: default; }

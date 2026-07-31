@@ -32,6 +32,16 @@ export async function loadLastChat(): Promise<StoredChat | null> {
   return chat ? reconcileStarredFlags(chat) : null
 }
 
+/**
+ * Removes a chat replaced by a new import. `lastChatId` is not touched: the
+ * replacement's `saveChat` has already pointed it at the new record, and
+ * clearing it here would race that write into "no chat on reload".
+ */
+export async function deleteChat(chatId: string): Promise<void> {
+  const db = await getDb()
+  await db.delete('chats', chatId)
+}
+
 export async function setStarred(chatId: string, mediaId: string, starred: boolean): Promise<void> {
   const db = await getDb()
   const tx = db.transaction('chats', 'readwrite')

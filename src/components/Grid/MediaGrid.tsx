@@ -1,8 +1,9 @@
 // src/components/Grid/MediaGrid.tsx
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { MediaItem, StorageRef } from '../../types'
 import { MediaTile } from './MediaTile'
+import { GAP, TILE_SIZE, columnsForWidth, rowIndexOfItem } from './gridLayout'
 import './Grid.css'
 
 interface Props {
@@ -11,9 +12,6 @@ interface Props {
   activeMediaId: string | null
   onOpen: (id: string) => void
 }
-
-const TILE_SIZE = 152
-const GAP = 10
 
 export function MediaGrid({ items, storageRef, activeMediaId, onOpen }: Props) {
   const parentRef = useRef<HTMLDivElement | null>(null)
@@ -41,7 +39,7 @@ export function MediaGrid({ items, storageRef, activeMediaId, onOpen }: Props) {
   }, [])
 
   const measured = width > 0
-  const columns = Math.max(1, Math.floor((width + GAP) / (TILE_SIZE + GAP)))
+  const columns = columnsForWidth(width)
 
   const rows = useMemo(() => {
     if (!measured) return []
@@ -56,6 +54,28 @@ export function MediaGrid({ items, storageRef, activeMediaId, onOpen }: Props) {
     estimateSize: () => TILE_SIZE + GAP,
     overscan: 4,
   })
+
+  // Stepping the detail panel's prev/next moves the selection without touching
+  // the grid, so the selected tile is usually off-screen. Follow it.
+  //
+  // Guarded by the id we last scrolled for, not by the effect deps alone: the
+  // deps also change on a resize (columns) and on filter changes (row index),
+  // and yanking the scroll position out from under someone who is scrolling by
+  // hand — with the same tile still selected — is exactly the fight to avoid.
+  // `align: 'auto'` is a no-op when the row is already fully visible, so
+  // clicking a tile in the grid never scrolls it.
+  const activeRow = measured ? rowIndexOfItem(items, activeMediaId, columns) : -1
+  const scrolledForId = useRef<string | null>(null)
+  useEffect(() => {
+    if (!activeMediaId) {
+      // Panel closed. Re-selecting the same item later should scroll again.
+      scrolledForId.current = null
+      return
+    }
+    if (activeRow < 0 || scrolledForId.current === activeMediaId) return
+    scrolledForId.current = activeMediaId
+    rowVirtualizer.scrollToIndex(activeRow, { align: 'auto' })
+  }, [activeMediaId, activeRow, rowVirtualizer])
 
   return (
     <div ref={setParent} className="grid-scroll">

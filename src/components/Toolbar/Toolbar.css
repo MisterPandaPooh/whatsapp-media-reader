@@ -3,13 +3,17 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 41px;
-  padding: 0 14px;
+  /* Wraps to a second row rather than pushing controls off the edge: at ~720px
+     (a narrow window, or one with the 448px detail panel open) the type chips
+     used to clip and become unreachable. The toolbar still cannot scroll — that
+     would clip the popovers — but they now render in a portal, so wrapping is
+     free of side effects. */
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-height: 41px;
+  padding: 6px 14px;
   background: var(--bg-header);
   border-bottom: 1px solid var(--border);
-  /* No overflow:auto here — it would create a scroll container that clips the
-     absolutely-positioned popovers. Children shrink instead. */
   overflow: visible;
 }
 
@@ -52,12 +56,13 @@
 /* Click-catcher: dismisses any open popover. Sits under the popover itself. */
 .popover-overlay { position: fixed; inset: 0; z-index: 30; }
 
+/* Positioned (position: fixed, top/left) by Popover.tsx, which portals this
+   into <body> and clamps it inside the viewport. */
 .popover {
-  position: absolute;
   z-index: 40;
-  top: 32px;
-  left: 0;
   width: 268px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
   background: #fff;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
@@ -209,10 +214,10 @@
 }
 .reset-btn:hover { background: #f6f6f5; color: var(--text-primary); }
 
-/* Narrow windows: drop the least essential metadata so the controls still fit
-   on one row (the toolbar can't scroll — that would clip the popovers). */
+/* Narrow windows: drop the least essential metadata to postpone wrapping, and
+   drop the dividers, which read as noise once the row can break anywhere. */
 @media (max-width: 980px) {
-  .toolbar { gap: 6px; padding: 0 10px; }
+  .toolbar { gap: 6px; padding: 6px 10px; }
   .type-chips .chip-count { display: none; }
-  .result-count { display: none; }
+  .divider { display: none; }
 }

@@ -20,6 +20,22 @@ export async function readMediaFile(ref: StorageRef, filename: string): Promise<
   }
 }
 
+/**
+ * Drop the media of a chat that has been replaced by a new import. Deliberately
+ * a no-op for directory-handle chats: that folder is the user's own export on
+ * their disk, and we only ever had read permission on it. Only the OPFS copy we
+ * wrote ourselves is ours to remove.
+ */
+export async function discardStorage(ref: StorageRef): Promise<void> {
+  if (ref.kind !== 'opfs') return
+  try {
+    const root = await getOpfsRoot()
+    await root.removeEntry(ref.folder, { recursive: true })
+  } catch {
+    // Already gone, or evicted. Nothing to do and nothing worth reporting.
+  }
+}
+
 export async function ensurePermission(ref: StorageRef): Promise<boolean> {
   if (ref.kind === 'opfs') return true
   const handle = ref.handle

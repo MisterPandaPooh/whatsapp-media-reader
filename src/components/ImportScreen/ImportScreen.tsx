@@ -17,6 +17,14 @@ interface Result {
 
 interface Props {
   onOpen: (chat: StoredChat) => void
+  /**
+   * Present only when there is something to go back to — i.e. the screen was
+   * opened over an already-loaded chat from the header's "Import chat…".
+   * Cancelling unmounts this screen, which terminates any running worker via
+   * the cleanup effect below; nothing has been written to IndexedDB until
+   * "Open media reader", so the loaded chat is untouched.
+   */
+  onCancel?: () => void
 }
 
 const STAGE_LABEL: Record<ImportProgress['stage'], string> = {
@@ -35,7 +43,7 @@ function titleFromZipName(name: string): string {
   return name.replace(/\.zip$/i, '')
 }
 
-export function ImportScreen({ onOpen }: Props) {
+export function ImportScreen({ onOpen, onCancel }: Props) {
   const [screen, setScreen] = useState<Screen>('drop')
   const [progress, setProgress] = useState<ImportProgress>({ stage: 'reading', progress: 0 })
   const [result, setResult] = useState<Result | null>(null)
@@ -246,6 +254,19 @@ export function ImportScreen({ onOpen }: Props) {
             >
               Choose folder…
             </button>
+            {onCancel && (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={(e) => {
+                  // The whole card is a click target for the file picker.
+                  e.stopPropagation()
+                  onCancel()
+                }}
+              >
+                Cancel
+              </button>
+            )}
           </div>
           {error && (
             <div className="import-error" role="alert" aria-live="polite">
@@ -283,6 +304,13 @@ export function ImportScreen({ onOpen }: Props) {
           <div className="progress-label">
             {STAGE_LABEL[progress.stage]} — {pct}%
           </div>
+          {onCancel && (
+            <div className="summary-actions">
+              <button type="button" className="btn-ghost" onClick={onCancel}>
+                Cancel import
+              </button>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -315,6 +343,11 @@ export function ImportScreen({ onOpen }: Props) {
           </select>
         </label>
         <div className="summary-actions">
+          {onCancel && (
+            <button type="button" className="btn-ghost" onClick={onCancel}>
+              Cancel
+            </button>
+          )}
           <button
             type="button"
             className="btn-secondary"

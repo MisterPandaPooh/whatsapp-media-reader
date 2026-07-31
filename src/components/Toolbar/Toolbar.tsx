@@ -1,6 +1,7 @@
 // src/components/Toolbar/Toolbar.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChatStore } from '../../store/useChatStore'
+import { Popover } from './Popover'
 import type { MediaItem, MediaKind } from '../../types'
 import {
   PRESETS,
@@ -38,6 +39,9 @@ export function Toolbar({ media, resultCount }: Props) {
 
   const [senderOpen, setSenderOpen] = useState(false)
   const [dateOpen, setDateOpen] = useState(false)
+  // The popovers render in a portal, so their placement is computed from these.
+  const senderBtnRef = useRef<HTMLButtonElement>(null)
+  const dateBtnRef = useRef<HTMLButtonElement>(null)
   const [senderQuery, setSenderQuery] = useState('')
   // First click of a two-click calendar range selection.
   const [pendingStart, setPendingStart] = useState<number | null>(null)
@@ -225,6 +229,7 @@ export function Toolbar({ media, resultCount }: Props) {
 
       <div className="popover-anchor">
         <button
+          ref={senderBtnRef}
           type="button"
           className={`chip chip--standalone ${filters.senders.length > 0 ? 'chip--active' : ''}`}
           aria-expanded={senderOpen}
@@ -245,7 +250,7 @@ export function Toolbar({ media, resultCount }: Props) {
               : `${filters.senders.length} people`}
         </button>
         {senderOpen && (
-          <div className="popover popover--senders" role="dialog" aria-label="Filter by sender">
+          <Popover anchorRef={senderBtnRef} className="popover popover--senders" label="Filter by sender">
             <input
               className="popover-search"
               placeholder="Search people"
@@ -289,7 +294,7 @@ export function Toolbar({ media, resultCount }: Props) {
                 Done
               </button>
             </div>
-          </div>
+          </Popover>
         )}
       </div>
 
@@ -297,6 +302,7 @@ export function Toolbar({ media, resultCount }: Props) {
 
       <div className="popover-anchor">
         <button
+          ref={dateBtnRef}
           type="button"
           className={`chip chip--standalone ${filters.dateFrom !== null || filters.dateTo !== null ? 'chip--active' : ''}`}
           aria-expanded={dateOpen}
@@ -310,7 +316,7 @@ export function Toolbar({ media, resultCount }: Props) {
           {dateLabel}
         </button>
         {dateOpen && (
-          <div className="popover popover--date" role="dialog" aria-label="Filter by date">
+          <Popover anchorRef={dateBtnRef} className="popover popover--date" label="Filter by date">
             <div className="popover-list">
               {PRESETS.map((p) => {
                 const r = rangeFor(p)
@@ -394,7 +400,7 @@ export function Toolbar({ media, resultCount }: Props) {
                 {pendingStart !== null ? 'Pick the end of the range' : 'Click a day, then another, to set a range'}
               </div>
             </div>
-          </div>
+          </Popover>
         )}
       </div>
 

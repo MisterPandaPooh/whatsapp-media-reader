@@ -1,13 +1,19 @@
 // src/App.tsx
 import { useEffect, useMemo, useState } from 'react'
 import { ImportScreen } from './components/ImportScreen/ImportScreen'
+import { AppHeader } from './components/Header/AppHeader'
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { MediaGrid } from './components/Grid/MediaGrid'
 import { DetailPanel } from './components/Panel/DetailPanel'
 import { useChatStore } from './store/useChatStore'
 import { filteredMedia } from './store/selectors'
-import { loadLastChat } from './storage/chatRepository'
-import { ensurePermission, hasPermission, isStorageReachable } from './storage/fileAccess'
+import { deleteChat, loadLastChat } from './storage/chatRepository'
+import {
+  discardStorage,
+  ensurePermission,
+  hasPermission,
+  isStorageReachable,
+} from './storage/fileAccess'
 import type { StoredChat } from './types'
 import './App.css'
 
@@ -35,6 +41,9 @@ export default function App() {
   // click before we can read anything out of it.
   const [needsPermission, setNeedsPermission] = useState<StoredChat | null>(null)
   const [permissionError, setPermissionError] = useState<string | null>(null)
+  // "Import chat…" pressed while a chat is loaded. The import screen goes over
+  // the reader, which stays mounted underneath so cancelling is free.
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     if (!SUPPORTED) {
@@ -114,6 +123,25 @@ export default function App() {
     setNeedsPermission(null)
   }
 
+  /**
+   * Single-chat app: a completed import replaces whatever was loaded. The
+   * replaced chat's IndexedDB record and its OPFS media are dropped afterwards
+   * — without this, every re-import would leave a full copy of the previous
+   * export behind in origin storage. Ordering matters: the new chat has already
+   * been saved (and `lastChatId` repointed) by the import screen, so this can
+   * only remove the old one. Fire-and-forget; a failure here is invisible and
+   * harmless, and must not delay showing the new chat.
+   */
+  function adoptImportedChat(next: StoredChat) {
+    const previous = useChatStore.getState().chat
+    setChat(next)
+    setImporting(false)
+    if (previous && previous.chatId !== next.chatId) {
+      void deleteChat(previous.chatId)
+      void discardStorage(previous.storageRef)
+    }
+  }
+
   const media = useMemo(
     () => (chat ? filteredMedia(chat.parsed.media, filters) : []),
     [chat, filters],
@@ -174,10 +202,15 @@ export default function App() {
     )
   }
 
-  if (!chat) return <ImportScreen onOpen={(c: StoredChat) => setChat(c)} />
+  if (!chat) return <ImportScreen onOpen={adoptImportedChat} />
 
   return (
     <div className="app-shell">
+      {/* Rendered over the reader (fixed, full-screen) rather than instead of
+          it, so cancelling restores the loaded chat with its scroll position,
+          filters and selection intact — no re-import, no re-read of IndexedDB. */}
+      {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={() => setImporting(false)} />}
+      <AppHeader title={chat.title} parsed={chat.parsed} onImport={() => setImporting(true)} />
       <Toolbar media={chat.parsed.media} resultCount={media.length} />
       <div className="app-body">
         <main className="app-main">
