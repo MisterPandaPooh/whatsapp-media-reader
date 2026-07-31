@@ -54,6 +54,13 @@ describe('parseChat', () => {
     expect(participants).toContain('Ana Ferreira')
   })
 
+  it('does not append a spurious trailing newline to the last message from a trailing-newline-terminated export', () => {
+    const { messages } = parseChat(fixture('basic.txt'), 'chat-1')
+    const last = messages[messages.length - 1]
+    expect(last.text).toBe('Sending the boarding pass now')
+    expect(last.text.endsWith('\n')).toBe(false)
+  })
+
   it('preserves an intentional blank line in the middle of a multiline message', () => {
     const content = [
       '3/9/25, 8:14 AM - Ana Ferreira: First paragraph',
