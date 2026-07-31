@@ -1,0 +1,4 @@
+3/9/25, 8:14 AM - Ana Ferreira: First line
+second line of the same message
+3/9/25, 8:20 AM - Ana Ferreira created group "Lisbon Trip"
+3/9/25, 8:21 AM - Tomás Silva: normal message after system line
