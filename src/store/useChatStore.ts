@@ -1,5 +1,6 @@
 // src/store/useChatStore.ts
 import { create } from 'zustand'
+import { setStarred } from '../storage/chatRepository'
 import type { MediaKind, StoredChat } from '../types'
 
 export interface Filters {
@@ -32,7 +33,7 @@ interface ChatState {
   toggleStarred: (mediaId: string) => void
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+export const useChatStore = create<ChatState>((set, get) => ({
   chat: null,
   filters: EMPTY_FILTERS,
   activeMediaId: null,
@@ -41,10 +42,23 @@ export const useChatStore = create<ChatState>((set) => ({
   resetFilters: () => set({ filters: EMPTY_FILTERS }),
   openMedia: (id) => set({ activeMediaId: id }),
   closePanel: () => set({ activeMediaId: null }),
-  toggleStarred: (mediaId) =>
+  toggleStarred: (mediaId) => {
     set((s) => {
       if (!s.chat) return s
       const next = !s.chat.starred[mediaId]
-      return { chat: { ...s.chat, starred: { ...s.chat.starred, [mediaId]: next } } }
-    }),
+      const media = s.chat.parsed.media.map((m) => (m.id === mediaId ? { ...m, starred: next } : m))
+      return {
+        chat: {
+          ...s.chat,
+          starred: { ...s.chat.starred, [mediaId]: next },
+          parsed: { ...s.chat.parsed, media },
+        },
+      }
+    })
+    // Read state AFTER the set() has applied, so we persist the new value.
+    const chat = get().chat
+    const nowStarred = chat?.starred[mediaId]
+    // Fire-and-forget: the UI must not block on IndexedDB.
+    if (chat && nowStarred !== undefined) void setStarred(chat.chatId, mediaId, nowStarred)
+  },
 }))
