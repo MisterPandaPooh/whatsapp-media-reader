@@ -13,6 +13,14 @@ export async function extractZipToOpfs(
 
   let chatText = ''
   const mediaFilenames: string[] = []
+  // Whether an entry has already been claimed as "the chat file". This must be
+  // decided synchronously at dispatch time (inside onEntry, before any async chunk
+  // work runs) — onEntry fires synchronously for every entry as it's scanned, so if
+  // two .txt entries land in the same push slice, both would see an unassigned
+  // `chatText` and both would race to claim it if we checked `!chatText` instead.
+  // Checking/setting this flag here restores the original for-loop's deterministic
+  // "first .txt wins" guarantee.
+  let chatFileClaimed = false
 
   try {
     onProgress({ stage: 'extracting', progress: 10 })
@@ -26,7 +34,8 @@ export async function extractZipToOpfs(
         const filename = name.split('/').pop() ?? name
         const cleanName = filename.replace(/^﻿/, '')
 
-        if (cleanName.toLowerCase().endsWith('.txt') && !chatText) {
+        if (cleanName.toLowerCase().endsWith('.txt') && !chatFileClaimed) {
+          chatFileClaimed = true
           // The chat transcript is always small, so buffering it fully (rather than
           // writing it to OPFS) is fine — Task 10's import worker needs it as a
           // string immediately anyway.
