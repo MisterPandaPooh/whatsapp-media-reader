@@ -1,7 +1,7 @@
 // src/parser/chatParser.ts
 import type { Message, MediaItem, ParsedChat } from '../types'
 import { matchDatePrefix } from './dateFormats'
-import { extractMediaFilename, detectKind, isSystemMessage } from './mediaIndicators'
+import { extractMediaFilename, detectKind, isSystemMessage, stripMediaMarker } from './mediaIndicators'
 import { makeIdGenerator } from './id'
 
 const URL_RE = /https?:\/\/\S+/i
@@ -43,7 +43,7 @@ export function parseChat(content: string, chatId: string): ParsedChat {
         kind: detectKind(filename),
         filename,
         size: 0,
-        caption: pending.text.replace(filename, '').trim(),
+        caption: stripMediaMarker(pending.text),
         sender: pending.sender,
         timestampMs: pending.timestampMs,
         anchorMessageId: id,

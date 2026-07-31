@@ -27,6 +27,42 @@ describe('parseChat', () => {
     expect(item!.anchorMessageId).toBe(mediaMsg.id)
   })
 
+  it('leaves an empty caption when a media message is just an attachment marker', () => {
+    const { messages, media } = parseChat(fixture('basic.txt'), 'chat-1')
+    const item = media.find((m) => m.id === messages[1].mediaId)!
+    expect(item.caption).toBe('')
+  })
+
+  it('keeps only the user caption for an iOS attachment with a caption', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: ‎<attached: IMG-20250903-WA0001.jpg>\nsunset at the beach\n'
+    const { media } = parseChat(content, 'chat-6')
+    expect(media).toHaveLength(1)
+    expect(media[0].caption).toBe('sunset at the beach')
+  })
+
+  it('keeps only the user caption for an Android attachment with a caption', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: IMG-20250903-WA0012.jpg (file attached)\nsunset at the beach\n'
+    const { media } = parseChat(content, 'chat-7')
+    expect(media).toHaveLength(1)
+    expect(media[0].filename).toBe('IMG-20250903-WA0012.jpg')
+    expect(media[0].caption).toBe('sunset at the beach')
+  })
+
+  it('leaves an empty caption for a bare Android attachment', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: IMG-20250903-WA0012.jpg (file attached)\n'
+    const { media } = parseChat(content, 'chat-8')
+    expect(media[0].caption).toBe('')
+  })
+
+  it('never leaves attachment marker residue in a caption', () => {
+    const { media } = parseChat(fixture('basic.txt'), 'chat-1')
+    for (const item of media) {
+      expect(item.caption).not.toContain('attached')
+      expect(item.caption).not.toContain('<')
+      expect(item.caption).not.toContain('‎')
+    }
+  })
+
   it('joins multiline messages into the previous message', () => {
     const { messages } = parseChat(fixture('multiline-and-system.txt'), 'chat-2')
     const first = messages.find((m) => m.text.startsWith('First line'))
