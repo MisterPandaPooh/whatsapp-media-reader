@@ -141,6 +141,52 @@ describe('parseChat', () => {
     expect(messages[0].text).toBe('I left my keys at home')
   })
 
+  it('extracts a document filename containing spaces and keeps the caption clean', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: Q1 Budget Review.pdf (file attached)\nthe numbers we discussed\n'
+    const { messages, media } = parseChat(content, 'chat-12')
+    expect(media).toHaveLength(1)
+    expect(media[0].filename).toBe('Q1 Budget Review.pdf')
+    expect(media[0].kind).toBe('doc')
+    expect(media[0].caption).toBe('the numbers we discussed')
+    expect(messages[0].text).toBe('the numbers we discussed')
+  })
+
+  it('extracts a spaced document filename from a bidi-prefixed Android marker', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: ‎Trip Photos 2026.zip (file attached)\n'
+    const { media } = parseChat(content, 'chat-13')
+    expect(media[0].filename).toBe('Trip Photos 2026.zip')
+    expect(media[0].caption).toBe('')
+  })
+
+  it('keeps a sender name longer than 50 characters instead of treating the line as a system message', () => {
+    const sender = 'Maria João Fernandes da Silva Costa Ribeiro Almeida'
+    expect(sender.length).toBeGreaterThanOrEqual(50)
+    const content = `3/9/25, 8:14 AM - ${sender}: see you at the gate\n`
+    const { messages, participants } = parseChat(content, 'chat-14')
+    expect(messages[0].sender).toBe(sender)
+    expect(messages[0].text).toBe('see you at the gate')
+    expect(messages[0].isSystemMessage).toBe(false)
+    expect(participants).toContain(sender)
+  })
+
+  it('keeps a long phone-plus-label contact string as the sender', () => {
+    const sender = '+351 912 345 678 (Lisbon Airbnb Host - Do Not Call)'
+    expect(sender.length).toBeGreaterThanOrEqual(50)
+    const content = `3/9/25, 8:14 AM - ${sender}: check-in is at 3pm\n`
+    const { messages, participants } = parseChat(content, 'chat-15')
+    expect(messages[0].sender).toBe(sender)
+    expect(messages[0].isSystemMessage).toBe(false)
+    expect(participants).toContain(sender)
+  })
+
+  it('still treats a sender-less line as a system message', () => {
+    const content = '3/9/25, 8:20 AM - Messages and calls are end-to-end encrypted. No one outside of this chat can read them.\n'
+    const { messages, participants } = parseChat(content, 'chat-16')
+    expect(messages[0].sender).toBe('')
+    expect(messages[0].isSystemMessage).toBe(true)
+    expect(participants).toEqual([])
+  })
+
   it('preserves an intentional blank line in the middle of a multiline message', () => {
     const content = [
       '3/9/25, 8:14 AM - Ana Ferreira: First paragraph',

@@ -26,4 +26,48 @@ describe('reconcileMediaWithFiles', () => {
     const [result] = reconcileMediaWithFiles([link], new Map())
     expect(result.missing).toBe(false)
   })
+
+  it('matches a filename containing spaces', () => {
+    const [result] = reconcileMediaWithFiles(
+      [item('Q1 Budget Review.pdf')],
+      new Map([['Q1 Budget Review.pdf', 4096]]),
+    )
+    expect(result.missing).toBe(false)
+    expect(result.size).toBe(4096)
+  })
+
+  it('matches a filename containing non-ASCII characters and spaces', () => {
+    const [result] = reconcileMediaWithFiles(
+      [item('Relatório Anual 2026.pdf')],
+      new Map([['Relatório Anual 2026.pdf', 77]]),
+    )
+    expect(result.missing).toBe(false)
+    expect(result.size).toBe(77)
+  })
+
+  // Regression sentinel for the parser truncating spaced filenames at the last
+  // whitespace: the file is on disk, but the truncated name matches nothing.
+  it('marks a truncated spaced filename as missing against the real catalog', () => {
+    const [result] = reconcileMediaWithFiles(
+      [item('Review.pdf')],
+      new Map([['Q1 Budget Review.pdf', 4096]]),
+    )
+    expect(result.missing).toBe(true)
+  })
+
+  it('matches a filename containing parentheses', () => {
+    const [result] = reconcileMediaWithFiles(
+      [item('Invoice (final).pdf')],
+      new Map([['Invoice (final).pdf', 12]]),
+    )
+    expect(result.missing).toBe(false)
+  })
+
+  it('reconciles every item in a mixed batch independently', () => {
+    const results = reconcileMediaWithFiles(
+      [item('Q1 Budget Review.pdf'), item('gone.jpg'), item('a.jpg')],
+      new Map([['Q1 Budget Review.pdf', 10], ['a.jpg', 20]]),
+    )
+    expect(results.map((r) => r.missing)).toEqual([false, true, false])
+  })
 })

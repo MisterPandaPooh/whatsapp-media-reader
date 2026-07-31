@@ -1,7 +1,23 @@
 import type { MediaKind } from '../types'
 
+// Bidi control characters iOS/Android sprinkle around attachment markers
+// (LRM, RLM, and the LRE/RLE/PDF/LRO/RLO block).
+const BIDI = '\\u200e\\u200f\\u202a-\\u202e'
+
 const ATTACHED_RE = /<attached:\s*([^>]+)>/i
-const FILE_ATTACHED_RE = /([^\s/\\]+\.[A-Za-z0-9]{2,5})\s*\((?:file attached|arquivo anexado|fichier joint|archivo adjunto)\)/i
+// Android emits the attachment marker on a line of its own: the filename starts
+// the line (after any bidi marks WhatsApp injects) and the caption, if any, sits
+// on the following lines. Anchoring to line start (`m` flag) is what lets the
+// filename group contain spaces — `Q1 Budget Review.pdf` — without the risk of
+// swallowing preceding caption words, which a whitespace-tolerant but unanchored
+// pattern would do. The group excludes path separators and newlines only, so
+// spaces, non-ASCII characters and parentheses all survive; the trailing
+// `\.[A-Za-z0-9]{2,5}` plus greedy backtracking pins the extension to the last
+// dot before the marker.
+const FILE_ATTACHED_RE = new RegExp(
+  `^[\\s${BIDI}]*([^/\\\\\\r\\n]+\\.[A-Za-z0-9]{2,5})[^\\S\\r\\n]*\\((?:file attached|arquivo anexado|fichier joint|archivo adjunto)\\)`,
+  'im',
+)
 
 export function extractMediaFilename(text: string): string | null {
   const m1 = text.match(ATTACHED_RE)
@@ -11,9 +27,6 @@ export function extractMediaFilename(text: string): string | null {
   return null
 }
 
-// Bidi control characters iOS sprinkles around attachment markers
-// (LRM, RLM, and the LRE/RLE/PDF/LRO/RLO block).
-const BIDI = '\\u200e\\u200f\\u202a-\\u202e'
 // Whitespace or bidi mark at either end of the whole caption.
 const EDGE_TRIM_RE = new RegExp(`^[\\s${BIDI}]+|[\\s${BIDI}]+$`, 'g')
 // Same-line padding (spaces/tabs/bidi marks, never newlines) hugging the marker.

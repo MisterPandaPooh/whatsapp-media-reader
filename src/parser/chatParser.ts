@@ -6,10 +6,21 @@ import { makeIdGenerator } from './id'
 
 const URL_RE = /https?:\/\/\S+/i
 
+// A sender name is bounded only by WhatsApp's contact-name limits, and contacts
+// imported from the address book are routinely long — a full name with several
+// surnames, or a phone number carrying a label. The cap exists purely to stop a
+// colon *inside* a system line from being read as a sender delimiter, so it can
+// be generous: 120 comfortably covers real names while still rejecting a colon
+// buried deep in a sentence.
+const MAX_SENDER_LENGTH = 120
+
 function splitSenderContent(rest: string): { sender: string; content: string } {
   const colonIndex = rest.indexOf(':')
-  if (colonIndex > 0 && colonIndex < 50) {
-    return { sender: rest.slice(0, colonIndex).trim(), content: rest.slice(colonIndex + 1).trim() }
+  const candidate = colonIndex > 0 ? rest.slice(0, colonIndex) : ''
+  // A sender name never spans lines, so a candidate containing one is message
+  // text that merely happens to contain a colon.
+  if (candidate !== '' && candidate.length <= MAX_SENDER_LENGTH && !/[\r\n]/.test(candidate)) {
+    return { sender: candidate.trim(), content: rest.slice(colonIndex + 1).trim() }
   }
   return { sender: '', content: rest.trim() }
 }
