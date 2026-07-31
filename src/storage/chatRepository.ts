@@ -27,14 +27,17 @@ export function reconcileStarredFlags(chat: StoredChat): StoredChat {
 
 /**
  * A chat imported before the parser learned to strip attachment markers still
- * carries the raw `<attached: IMG-0002.png>` in `Message.text`, and the
- * conversation thread renders that text verbatim. Parsing is import-time only,
- * so without this fix-up an existing library would keep showing the marker
+ * carries the raw `<attached: IMG-0002.png>` in `Message.text` and in
+ * `MediaItem.caption`. The thread renders the text verbatim, and the caption
+ * shows on every tile *and* feeds the search haystack. Parsing is import-time
+ * only, so without this fix-up an existing library would keep showing markers
  * until it was re-imported — the very defect the parser change removes.
  *
- * Only media-bearing messages are considered, and the chat is returned
- * unchanged (same identity, no copying) when nothing needed stripping, which is
- * the case for everything the current parser writes.
+ * The two fields regressed in separate releases, so they are stripped
+ * independently rather than assuming a chat with clean text also has clean
+ * captions. The chat is returned unchanged (same identity, no copying) when
+ * nothing needed stripping, which is the case for everything the current
+ * parser writes.
  */
 export function stripStoredMediaMarkers(chat: StoredChat): StoredChat {
   let changed = false
@@ -45,7 +48,16 @@ export function stripStoredMediaMarkers(chat: StoredChat): StoredChat {
     changed = true
     return { ...m, text }
   })
-  return changed ? { ...chat, parsed: { ...chat.parsed, messages } } : chat
+  const media = chat.parsed.media.map((item) => {
+    // A link item's "filename" is its URL and its caption is the message
+    // itself; there is no attachment marker to strip.
+    if (item.kind === 'link') return item
+    const caption = stripMediaMarker(item.caption)
+    if (caption === item.caption) return item
+    changed = true
+    return { ...item, caption }
+  })
+  return changed ? { ...chat, parsed: { ...chat.parsed, messages, media } } : chat
 }
 
 export async function loadLastChat(): Promise<StoredChat | null> {

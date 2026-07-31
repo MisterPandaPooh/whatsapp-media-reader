@@ -76,6 +76,39 @@ describe('stripStoredMediaMarkers', () => {
     expect(stripStoredMediaMarkers(chat).parsed.messages[0].text).toBe('sunset at the beach')
   })
 
+  it('strips a raw marker left in a legacy MediaItem.caption', () => {
+    // The caption regressed in a separate release from Message.text, so a chat
+    // can have clean text and a dirty caption. The caption shows on every tile
+    // and feeds the search haystack, where "<attached:" would match everything.
+    const media = makeMedia('media-1')
+    media.caption = '‎<attached: media-1.jpg>'
+    const chat = makeChat('chat-legacy-caption', [media])
+
+    expect(stripStoredMediaMarkers(chat).parsed.media[0].caption).toBe('')
+  })
+
+  it('keeps the user caption of a captioned legacy media item', () => {
+    const media = makeMedia('media-1')
+    media.caption = '‎<attached: media-1.jpg>\nsunset at the beach'
+    const chat = makeChat('chat-legacy-caption-2', [media])
+
+    expect(stripStoredMediaMarkers(chat).parsed.media[0].caption).toBe('sunset at the beach')
+  })
+
+  it('leaves a link item alone — its caption is the message, not a marker', () => {
+    const media: MediaItem = {
+      ...makeMedia('media-1'),
+      kind: 'link',
+      filename: 'https://example.com/a',
+      caption: 'the villa listing https://example.com/a',
+    }
+    const chat = makeChat('chat-legacy-link', [media])
+
+    expect(stripStoredMediaMarkers(chat).parsed.media[0].caption).toBe(
+      'the villa listing https://example.com/a',
+    )
+  })
+
   it('leaves a message with no attachment alone', () => {
     const chat = makeChat('chat-legacy-3')
     chat.parsed.messages = [makeMessage({ text: 'use <div> for the wrapper' })]
