@@ -30,7 +30,9 @@ export function useLazyThumbnail<T extends Element>(
   // than in the dependency array) prevents the observer from being torn down
   // and rebuilt on every parent render if the caller passes a fresh object.
   const storageRefLatest = useRef(storageRef)
-  storageRefLatest.current = storageRef
+  useEffect(() => {
+    storageRefLatest.current = storageRef
+  }, [storageRef])
   const storageKey = storageRef.kind === 'opfs' ? `opfs:${storageRef.folder}` : 'directory-handle'
 
   useEffect(() => {

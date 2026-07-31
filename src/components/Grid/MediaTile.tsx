@@ -1,5 +1,4 @@
 // src/components/Grid/MediaTile.tsx
-import type { KeyboardEvent } from 'react'
 import type { MediaItem, StorageRef } from '../../types'
 import { useLazyThumbnail } from './useLazyThumbnail'
 import { useChatStore } from '../../store/useChatStore'
@@ -37,25 +36,14 @@ export function MediaTile({ item, storageRef, selected, onOpen, scrollRoot }: Pr
   // photo-style gradient overlay would just duplicate it.
   const showFileCard = !item.missing && !isVisual
 
-  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onOpen(item.id)
-    }
-  }
-
   return (
-    // A <div role="button"> rather than a <button>: the star toggle below is
-    // itself a button, and nested interactive elements are invalid HTML.
+    // The tile itself is a plain container. The two controls are siblings, not
+    // nested: a <button> inside a <button> is a parse error, and role="button"
+    // is "children presentational", which would strip the star's own role and
+    // label from the accessibility tree.
     <div
       ref={ref}
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      aria-current={selected || undefined}
       className={`media-tile media-tile--${item.kind}${selected ? ' media-tile--selected' : ''}`}
-      onClick={() => onOpen(item.id)}
-      onKeyDown={handleKeyDown}
     >
       {item.missing ? (
         <div className="tile-missing">Missing</div>
@@ -66,7 +54,8 @@ export function MediaTile({ item, storageRef, selected, onOpen, scrollRoot }: Pr
               // #t=0.1 nudges the browser to decode and paint a first frame.
               <video className="tile-media" src={`${url}#t=0.1`} preload="metadata" muted playsInline />
             ) : (
-              <img className="tile-media" src={url} alt={label} loading="lazy" decoding="async" />
+              // Decorative: the open button below carries the accessible name.
+              <img className="tile-media" src={url} alt="" decoding="async" />
             )
           ) : (
             <div className="tile-placeholder" />
@@ -86,16 +75,21 @@ export function MediaTile({ item, storageRef, selected, onOpen, scrollRoot }: Pr
         </div>
       )}
 
+      {/* Full-bleed transparent hit target, stacked under the star. */}
+      <button
+        type="button"
+        className="tile-open"
+        aria-label={label}
+        aria-current={selected || undefined}
+        onClick={() => onOpen(item.id)}
+      />
+
       <button
         type="button"
         className={`tile-star${item.starred ? ' tile-star--on' : ''}`}
         aria-pressed={item.starred}
         aria-label={item.starred ? 'Unstar' : 'Star'}
-        onClick={(e) => {
-          // Must not also open the detail panel.
-          e.stopPropagation()
-          toggleStarred(item.id)
-        }}
+        onClick={() => toggleStarred(item.id)}
       >
         ★
       </button>

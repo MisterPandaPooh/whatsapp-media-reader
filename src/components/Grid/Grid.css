@@ -4,6 +4,9 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* Reserve the scrollbar before it appears: the first width measurement
+     would otherwise be a classic scrollbar too wide and reflow a column. */
+  scrollbar-gutter: stable;
   padding: 0 16px 28px;
 }
 
@@ -25,10 +28,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  cursor: pointer;
   background: #e4e2dd;
   text-align: left;
-  outline: none;
 }
 
 .media-tile--selected {
@@ -36,7 +37,18 @@
   outline-offset: -2px;
 }
 
-.media-tile:focus-visible {
+/* Covers the whole tile; the star sits above it via a higher z-index. */
+.tile-open {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tile-open:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
@@ -128,6 +140,7 @@
 
 .tile-star {
   position: absolute;
+  z-index: 2;
   right: 6px;
   bottom: 6px;
   width: 22px;
