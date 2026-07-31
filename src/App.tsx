@@ -189,11 +189,17 @@ export default function App() {
     [chat, filters],
   )
   const filteredIds = useMemo(() => media.map((m) => m.id), [media])
-  // Deliberately looked up only within the *filtered* set: if the active item
-  // drops out of the filtered results (the user changed a filter while the
-  // panel was open), the panel closes itself instead of showing a stale item
-  // with a broken "N of M" position indicator.
-  const activeItem = activeMediaId ? media.find((m) => m.id === activeMediaId) : undefined
+  // Looked up in the *whole* media list, not the filtered one. The selection is
+  // the user's; a filter narrowed while the panel is open (typing in the search
+  // box, say) must not silently yank the item they are reading out from under
+  // them — and looking it up in the filtered set only *hid* the panel anyway,
+  // since activeMediaId stayed set and the panel sprang back when the filter was
+  // relaxed. Out-of-set is a state the panel already renders honestly: the
+  // position indicator reads "— of M" and Next drops back into the filtered set.
+  const activeItem = useMemo(
+    () => (chat && activeMediaId ? chat.parsed.media.find((m) => m.id === activeMediaId) : undefined),
+    [chat, activeMediaId],
+  )
 
   if (!SUPPORTED) {
     return (

@@ -4,6 +4,7 @@ import type { ChangeEvent, DragEvent } from 'react'
 import type { ImportProgress, ParsedChat, StorageRef, StoredChat } from '../../types'
 import type { ImportRequest, ImportResponse } from '../../worker/importWorker'
 import { saveChat } from '../../storage/chatRepository'
+import { discardStorage } from '../../storage/fileAccess'
 import './ImportScreen.css'
 
 type Screen = 'drop' | 'parsing' | 'summary'
@@ -109,6 +110,26 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
       if (msg.type === 'progress') {
         setProgress(msg.progress)
       } else if (msg.type === 'done') {
+        // A transcript that yields no messages at all is not a successful import:
+        // it is what an unsupported date format looks like from the outside (the
+        // parser needs to recognize a line's date stamp to see a message at all),
+        // or the wrong file being picked. Completing it would hand the user an
+        // empty reader — and, on a re-import, silently drop the chat they had
+        // open in exchange for it. Stop at the drop screen and say so instead.
+        //
+        // Note the test is on *messages*, not media: a chat with messages and no
+        // media is a text-only export, which is fine and opens normally.
+        if (msg.parsed.messages.length === 0) {
+          setError(
+            `No messages could be read out of ${req.title}. Either its date format is not one this reader recognizes, or the file picked was not a WhatsApp chat export — check that the archive contains a _chat.txt and try again. The chat you had open has been left as it was.`,
+          )
+          setScreen('drop')
+          // The worker has already unpacked this export's media into its own OPFS
+          // folder; nothing will ever reference it now.
+          void discardStorage(msg.storageRef)
+          finish()
+          return
+        }
         setResult({ parsed: msg.parsed, storageRef: msg.storageRef, title: req.title, chatId })
         setMePick('')
         setScreen('summary')

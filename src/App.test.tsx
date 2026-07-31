@@ -42,7 +42,7 @@ vi.stubGlobal(
 )
 
 const { default: App } = await import('./App')
-const { useChatStore } = await import('./store/useChatStore')
+const { useChatStore, EMPTY_FILTERS } = await import('./store/useChatStore')
 
 function makeChat(patch: Partial<StoredChat> = {}): StoredChat {
   return {
@@ -237,5 +237,70 @@ describe('Escape with the import overlay open', () => {
     fireEvent.keyDown(window, { key: 'Escape' })
 
     expect(dropZone()).toBeTruthy()
+  })
+})
+
+describe('the open item falling outside the filters', () => {
+  /** Two items so a type filter can exclude the open one while leaving a result set. */
+  function twoItemChat(): StoredChat {
+    const base = makeChat()
+    return {
+      ...base,
+      parsed: {
+        ...base.parsed,
+        messages: [
+          ...base.parsed.messages,
+          { id: 'msg2', sender: 'Bob', timestampMs: 1700000100000, text: 'clip', isSystemMessage: false },
+        ],
+        media: [
+          base.parsed.media[0],
+          {
+            id: 'm2',
+            kind: 'video' as const,
+            filename: 'clip.mp4',
+            size: 20,
+            caption: 'the clip',
+            sender: 'Bob',
+            timestampMs: 1700000100000,
+            anchorMessageId: 'msg2',
+            starred: false,
+            missing: true,
+          },
+        ],
+      },
+    }
+  }
+
+  const panel = () => screen.queryByRole('complementary', { name: 'Message detail' })
+
+  it('keeps the panel open on the still-selected item', async () => {
+    // Narrowing the filters while the panel is open used to make it vanish with
+    // no explanation — and reappear when the filter was relaxed, because
+    // activeMediaId was never cleared. The selection is the user's, not the
+    // filter's: the panel stays, and says the item is outside the results.
+    useChatStore.setState({ chat: twoItemChat(), activeMediaId: 'm1', filters: EMPTY_FILTERS })
+    render(<App />)
+    await waitFor(() => expect(panel()).toBeTruthy())
+
+    act(() => {
+      useChatStore.getState().setFilters({ types: ['video'] })
+    })
+
+    expect(panel()).toBeTruthy()
+    expect(document.querySelector('.panel-position')?.textContent).toBe('— of 1')
+  })
+
+  it('lets Next drop back into the filtered set', async () => {
+    useChatStore.setState({ chat: twoItemChat(), activeMediaId: 'm1', filters: EMPTY_FILTERS })
+    render(<App />)
+    await waitFor(() => expect(panel()).toBeTruthy())
+    act(() => {
+      useChatStore.getState().setFilters({ types: ['video'] })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next item' }))
+
+    expect(useChatStore.getState().activeMediaId).toBe('m2')
+    expect(document.querySelector('.panel-position')?.textContent).toBe('1 of 1')
   })
 })
