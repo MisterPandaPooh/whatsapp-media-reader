@@ -241,6 +241,9 @@ export function Toolbar({ media, resultCount }: Props) {
           aria-haspopup="dialog"
           onClick={() => {
             setDateOpen(false)
+            // The in-popover search is transient UI state, not a filter: start fresh
+            // each time it opens so the list never looks mysteriously empty.
+            setSenderQuery('')
             setSenderOpen((v) => !v)
           }}
         >
