@@ -100,8 +100,23 @@ export function ImportScreen({ onOpen }: Props) {
   }
 
   async function importZipFile(file: File) {
-    const bytes = new Uint8Array(await file.arrayBuffer())
+    // Reading the file can fail after it was picked (moved/deleted on disk) or run out
+    // of memory on a very large export. These handlers are attached straight to DOM
+    // events, so an unhandled rejection here would leave the UI silent.
+    let bytes: Uint8Array
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer())
+    } catch (err) {
+      setError(`Could not read ${file.name}: ${err instanceof Error ? err.message : String(err)}`)
+      setScreen('drop')
+      return
+    }
     runImport({ kind: 'zip', zipBytes: bytes, title: titleFromZipName(file.name) })
+  }
+
+  /** File System Access pickers reject with AbortError when the user cancels; anything else is a real failure. */
+  function isCancel(err: unknown): boolean {
+    return err instanceof DOMException && err.name === 'AbortError'
   }
 
   async function pickZip() {
@@ -117,10 +132,19 @@ export function ImportScreen({ onOpen }: Props) {
         types: [{ description: 'WhatsApp export', accept: { 'application/zip': ['.zip'] } }],
         multiple: false,
       })
-    } catch {
-      return // user cancelled
+    } catch (err) {
+      if (!isCancel(err)) setError(err instanceof Error ? err.message : String(err))
+      return
     }
-    if (handle) await importZipFile(await handle.getFile())
+    if (!handle) return
+    let file: File
+    try {
+      file = await handle.getFile()
+    } catch (err) {
+      setError(`Could not open the selected file: ${err instanceof Error ? err.message : String(err)}`)
+      return
+    }
+    await importZipFile(file)
   }
 
   async function pickFolder() {
@@ -132,8 +156,9 @@ export function ImportScreen({ onOpen }: Props) {
     let dirHandle: FileSystemDirectoryHandle | undefined
     try {
       dirHandle = await window.showDirectoryPicker({ mode: 'read' })
-    } catch {
-      return // user cancelled
+    } catch (err) {
+      if (!isCancel(err)) setError(err instanceof Error ? err.message : String(err))
+      return
     }
     if (dirHandle) runImport({ kind: 'directory', handle: dirHandle, title: dirHandle.name })
   }
@@ -160,6 +185,7 @@ export function ImportScreen({ onOpen }: Props) {
   async function confirmOpen() {
     if (!result || saving) return
     setSaving(true)
+    setError(null)
     const stored: StoredChat = {
       chatId: result.chatId,
       title: result.title,
@@ -172,9 +198,10 @@ export function ImportScreen({ onOpen }: Props) {
     try {
       await saveChat(stored)
     } catch (err) {
+      // Stay on the summary screen: the parsed result (and its already-extracted media)
+      // is still valid, so the user can just press "Open media reader" again.
       setSaving(false)
-      setError(err instanceof Error ? err.message : String(err))
-      setScreen('drop')
+      setError(`Could not save this chat: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
     setSaving(false)
@@ -220,7 +247,11 @@ export function ImportScreen({ onOpen }: Props) {
               Choose folder…
             </button>
           </div>
-          {error && <div className="import-error">{error}</div>}
+          {error && (
+            <div className="import-error" role="alert" aria-live="polite">
+              {error}
+            </div>
+          )}
           <input
             ref={zipInputRef}
             type="file"
@@ -239,7 +270,14 @@ export function ImportScreen({ onOpen }: Props) {
     return (
       <div className="import-overlay">
         <div className="import-card">
-          <div className="progress-track">
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-valuetext={`${STAGE_LABEL[progress.stage]} — ${pct}%`}
+          >
             <div className="progress-fill" style={{ width: `${pct}%` }} />
           </div>
           <div className="progress-label">
@@ -292,6 +330,11 @@ export function ImportScreen({ onOpen }: Props) {
             {saving ? 'Saving…' : 'Open media reader'}
           </button>
         </div>
+        {error && (
+          <div className="import-error" role="alert" aria-live="polite">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   )
