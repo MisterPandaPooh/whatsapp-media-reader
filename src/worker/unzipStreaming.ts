@@ -9,8 +9,17 @@ import { Unzip, UnzipInflate } from 'fflate'
  * more compressed input, which bounds how much decompressed data can be in flight at
  * once — this backpressure is what makes extraction actually stream instead of
  * buffering the whole archive's decompressed contents in memory simultaneously.
+ *
+ * `chunk` is typed `Uint8Array<ArrayBuffer>` (not the wider `Uint8Array` /
+ * `Uint8Array<ArrayBufferLike>`) to match fflate's own `AsyncFlateStreamHandler`
+ * signature, which is what actually produces these chunks — every chunk fflate hands
+ * back is backed by a fresh `ArrayBuffer`, never a `SharedArrayBuffer`. Keeping that
+ * precision here (instead of widening to plain `Uint8Array`) lets callers pass chunks
+ * straight into DOM APIs like `FileSystemWritableFileStream.write()`, whose
+ * `FileSystemWriteChunkType` requires an `ArrayBuffer`-backed view, without needing an
+ * unsafe cast at the call site.
  */
-export type UnzipChunkHandler = (chunk: Uint8Array, isLast: boolean) => void | Promise<void>
+export type UnzipChunkHandler = (chunk: Uint8Array<ArrayBuffer>, isLast: boolean) => void | Promise<void>
 
 /**
  * Called synchronously once per entry, in the order entries appear in the archive.
