@@ -35,6 +35,61 @@ export type UnzipEntryHandler = (name: string) => UnzipChunkHandler
 // archive's worth.
 const PUSH_CHUNK_SIZE = 1024 * 1024 // 1MB
 
+// Strict decoder: throws on any byte sequence that isn't well-formed UTF-8, which is
+// exactly the validity test the sniff below needs.
+const strictUtf8 = new TextDecoder('utf-8', { fatal: true })
+
+/**
+ * Repairs zip entry names that are UTF-8 bytes stored *without* the zip general-purpose
+ * "language encoding" flag (bit 11).
+ *
+ * fflate does honour bit 11 — it calls `strFromU8(nameBytes, !(flags & 2048))`, whose
+ * second argument selects Latin-1 — so flagged archives decode correctly. But macOS
+ * `zip` and `ditto` (what Finder's
+ * "Compress" uses) write UTF-8 filename bytes and leave bit 11 clear, so fflate takes
+ * the Latin-1 branch and we get classic mojibake: `שלום-תמונה.png` arrives as
+ * `×©×××-×ª××× ×.png`, the parser's lookup misses, and the item shows as Missing.
+ *
+ * fflate's streaming `Unzip` surfaces only `{ name, compression, size, originalSize }`
+ * on each entry — neither the raw filename bytes nor the flag word are exposed — so we
+ * can't consult bit 11 ourselves without re-parsing the local file headers by hand.
+ * Instead we undo fflate's Latin-1 reading and re-decode: the Latin-1 branch is
+ * `String.fromCharCode` per byte, so every code unit is 0x00–0xFF and `charCodeAt(i)`
+ * recovers the original byte exactly (a lossless round-trip). If those bytes are valid
+ * UTF-8, the name was mis-flagged and we use the UTF-8 reading; otherwise we keep what
+ * fflate gave us.
+ *
+ * False-positive risk: a name that is *genuinely* CP437/Latin-1 and also happens to be
+ * well-formed UTF-8 would be re-decoded wrongly. That needs a high byte in 0xC2–0xF4
+ * (`Â`–`ô`) followed by exactly the right count of bytes in 0x80–0xBF — in Latin-1 text
+ * that range is control codes and stray punctuation/symbols, which essentially never
+ * follow an accented letter in a real filename. The classic collision, `Ã©` → `é`, is
+ * itself already mojibake, so "fixing" it is the desired outcome anyway. Two cheap
+ * guards keep the sniff off everything else: names with no byte above 0x7F are returned
+ * untouched, and a name containing any code unit above 0xFF cannot have come from the
+ * Latin-1 branch (the UTF-8 flag was set and fflate decoded it properly), so it's left
+ * alone too.
+ */
+export function decodeZipEntryName(name: string): string {
+  let hasHighByte = false
+  for (let i = 0; i < name.length; i++) {
+    const code = name.charCodeAt(i)
+    // Above 0xFF ⇒ fflate used its UTF-8 branch; nothing to repair.
+    if (code > 0xff) return name
+    if (code > 0x7f) hasHighByte = true
+  }
+  if (!hasHighByte) return name
+
+  const bytes = new Uint8Array(name.length)
+  for (let i = 0; i < name.length; i++) bytes[i] = name.charCodeAt(i)
+  try {
+    return strictUtf8.decode(bytes)
+  } catch {
+    // Not valid UTF-8 — a genuine CP437/Latin-1 name. Keep fflate's reading.
+    return name
+  }
+}
+
 /**
  * Decompresses a zip archive using fflate's true streaming API (`Unzip` registered
  * with the synchronous `UnzipInflate` decoder), invoking `onEntry` as each file is
@@ -63,7 +118,7 @@ export async function unzipStreaming(
   }
 
   const unzipper = new Unzip((file) => {
-    const handleChunk = onEntry(file.name)
+    const handleChunk = onEntry(decodeZipEntryName(file.name))
     file.ondata = (err, chunk, isLast) => {
       if (err) {
         recordFailure(err)

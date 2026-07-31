@@ -34,6 +34,33 @@ function createStubOpfsRoot() {
   return { root, written }
 }
 
+function concatWritten(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((n, c) => n + c.length, 0)
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.length
+  }
+  return out
+}
+
+/**
+ * Clears the zip UTF-8 general-purpose flag (bit 11) on every header, reproducing
+ * what macOS `zip`/`ditto` (Finder's "Compress") emit: UTF-8 filename bytes with the
+ * flag unset. See unzipStreaming.test.ts for the same helper.
+ */
+function clearUtf8Flag(zip: Uint8Array): Uint8Array {
+  const out = zip.slice()
+  const view = new DataView(out.buffer, out.byteOffset, out.byteLength)
+  for (let i = 0; i + 4 <= out.length; i++) {
+    const sig = view.getUint32(i, true)
+    if (sig === 0x04034b50) out[i + 7] &= ~0x08
+    else if (sig === 0x02014b50) out[i + 9] &= ~0x08
+  }
+  return out
+}
+
 describe('extractZipToOpfs', () => {
   afterEach(() => {
     // @ts-expect-error test-only stub, not a full FileSystemDirectoryHandle
@@ -64,5 +91,101 @@ describe('extractZipToOpfs', () => {
     expect(result.chatText).toBe('REAL CHAT CONTENT')
     expect(result.mediaFilenames).toEqual(['readme.txt'])
     expect(Object.keys(written)).toEqual(['readme.txt'])
+  })
+
+  it('prefers an entry named _chat.txt over an earlier, differently-named .txt', async () => {
+    const { root, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    // Entry order matters: the non-transcript .txt comes FIRST, so a plain
+    // "first .txt wins" rule would claim it as the transcript.
+    const zipBytes = zipSync({
+      'notes.txt': strToU8('SOME OTHER TXT'),
+      '_chat.txt': strToU8('REAL CHAT CONTENT'),
+    })
+
+    const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(result.chatText).toBe('REAL CHAT CONTENT')
+    // The demoted candidate is still a real attachment — it must reach OPFS.
+    expect(result.mediaFilenames).toEqual(['notes.txt'])
+    expect(Object.keys(written)).toEqual(['notes.txt'])
+    expect(Array.from(concatWritten(written['notes.txt']))).toEqual(
+      Array.from(strToU8('SOME OTHER TXT')),
+    )
+  })
+
+  it('falls back to the first .txt when no entry is named _chat.txt', async () => {
+    const { root, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    const zipBytes = zipSync({
+      'WhatsApp Chat with Ana.txt': strToU8('FALLBACK CHAT CONTENT'),
+      'later.txt': strToU8('SOME OTHER TXT'),
+    })
+
+    const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(result.chatText).toBe('FALLBACK CHAT CONTENT')
+    expect(result.mediaFilenames).toEqual(['later.txt'])
+    expect(Object.keys(written)).toEqual(['later.txt'])
+  })
+
+  it('never claims an AppleDouble sidecar as the chat transcript', async () => {
+    const { root } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    // Finder's "Compress" puts its AppleDouble sidecars in __MACOSX/ FIRST, so the
+    // sidecar for _chat.txt is scanned before the real transcript.
+    const zipBytes = zipSync({
+      '__MACOSX/.__chat.txt': strToU8('APPLEDOUBLE JUNK'),
+      '_chat.txt': strToU8('REAL CHAT CONTENT'),
+    })
+
+    const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(result.chatText).toBe('REAL CHAT CONTENT')
+  })
+
+  it('skips macOS AppleDouble entries instead of writing them to OPFS', async () => {
+    const { root, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    const zipBytes = zipSync({
+      '_chat.txt': strToU8('REAL CHAT CONTENT'),
+      'IMG-001.jpg': new Uint8Array([1, 2, 3]),
+      '__MACOSX/._IMG-001.jpg': new Uint8Array([9, 9, 9]),
+      '__MACOSX/._chat.txt': new Uint8Array([9, 9]),
+      '._IMG-001.jpg': new Uint8Array([9]),
+      '__MACOSX/sub/._nested.png': new Uint8Array([9]),
+    })
+
+    const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(result.chatText).toBe('REAL CHAT CONTENT')
+    expect(result.mediaFilenames).toEqual(['IMG-001.jpg'])
+    expect(Object.keys(written)).toEqual(['IMG-001.jpg'])
+  })
+
+  it('writes a non-ASCII media filename correctly when the zip UTF-8 flag is unset', async () => {
+    const { root, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    const zipBytes = clearUtf8Flag(
+      zipSync({
+        '_chat.txt': [strToU8('REAL CHAT CONTENT'), { level: 0 }],
+        'שלום-תמונה.png': [new Uint8Array([1, 2, 3]), { level: 0 }],
+      }),
+    )
+
+    const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(result.mediaFilenames).toEqual(['שלום-תמונה.png'])
+    expect(Object.keys(written)).toEqual(['שלום-תמונה.png'])
   })
 })
