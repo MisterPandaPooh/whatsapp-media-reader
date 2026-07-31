@@ -54,6 +54,43 @@ describe('parseChat', () => {
     expect(media[0].caption).toBe('')
   })
 
+  it('strips the attachment marker from the message text, not only from the caption', () => {
+    // The thread in the detail panel renders Message.text verbatim, so a marker
+    // left here shows up as a literal "<attached: IMG-…jpg>" bubble.
+    const { messages } = parseChat(fixture('basic.txt'), 'chat-1')
+    expect(messages[1].mediaId).toBeDefined()
+    expect(messages[1].text).toBe('')
+  })
+
+  it('keeps only the user caption in the message text of a captioned iOS attachment', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: ‎<attached: IMG-20250903-WA0001.jpg>\nsunset at the beach\n'
+    const { messages } = parseChat(content, 'chat-9')
+    expect(messages[0].text).toBe('sunset at the beach')
+  })
+
+  it('keeps only the user caption in the message text of a captioned Android attachment', () => {
+    const content = '3/9/25, 8:15 AM - Tomás Silva: IMG-20250903-WA0012.jpg (file attached)\nsunset at the beach\n'
+    const { messages } = parseChat(content, 'chat-10')
+    expect(messages[0].text).toBe('sunset at the beach')
+  })
+
+  it('never leaves attachment marker residue in any message text', () => {
+    const { messages } = parseChat(fixture('basic.txt'), 'chat-1')
+    for (const m of messages) {
+      expect(m.text).not.toContain('attached')
+      expect(m.text).not.toContain('<')
+      expect(m.text).not.toContain('‎')
+    }
+  })
+
+  it('leaves the text of a plain message that merely contains a URL alone', () => {
+    // A link "media item" has no marker to strip: its text is the message.
+    const content = '3/9/25, 8:15 AM - Ana Ferreira: look at https://example.com/x nice\n'
+    const { messages, media } = parseChat(content, 'chat-11')
+    expect(media[0].kind).toBe('link')
+    expect(messages[0].text).toBe('look at https://example.com/x nice')
+  })
+
   it('never leaves attachment marker residue in a caption', () => {
     const { media } = parseChat(fixture('basic.txt'), 'chat-1')
     for (const item of media) {

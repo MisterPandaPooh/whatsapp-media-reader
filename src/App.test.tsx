@@ -1,7 +1,20 @@
 // src/App.test.tsx
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { StoredChat } from './types'
+
+// Swappable per test so the startup restore can be made to resolve, reject or —
+// the case that produced a permanently blank screen in a real browser — never
+// settle at all.
+const repo = vi.hoisted(() => ({
+  loadLastChat: (): Promise<StoredChat | null> => Promise.resolve(null),
+}))
+vi.mock('./storage/chatRepository', () => ({
+  loadLastChat: () => repo.loadLastChat(),
+  deleteChat: vi.fn(() => Promise.resolve()),
+  saveChat: vi.fn(() => Promise.resolve()),
+  setStarred: vi.fn(() => Promise.resolve()),
+}))
 
 // `SUPPORTED` is evaluated when App.tsx is first imported, so both capabilities
 // have to exist before that import — hence the dynamic import below.
@@ -65,10 +78,12 @@ function makeChat(patch: Partial<StoredChat> = {}): StoredChat {
 
 beforeEach(() => {
   useChatStore.setState({ chat: makeChat(), activeMediaId: null })
+  repo.loadLastChat = () => Promise.resolve(null)
 })
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
 })
 
 const importButton = () => screen.getByRole('button', { name: 'Import chat…' })
@@ -116,5 +131,111 @@ describe('App header', () => {
     expect(dropZone()).toBeNull()
     expect(screen.getByRole('heading', { name: 'Family Trip' })).toBeTruthy()
     expect(useChatStore.getState().chat?.chatId).toBe('chat-1')
+  })
+})
+
+describe('App startup when IndexedDB hangs', () => {
+  /** A promise that never settles — what a blocked `open()` actually looks like. */
+  function neverSettles(): Promise<StoredChat | null> {
+    return new Promise<StoredChat | null>(() => {})
+  }
+
+  it('falls through to the import screen instead of a permanently blank page', async () => {
+    vi.useFakeTimers()
+    useChatStore.setState({ chat: null, activeMediaId: null })
+    repo.loadLastChat = neverSettles
+
+    render(<App />)
+    // Still gated: this is the correct behaviour for the first few seconds.
+    expect(dropZone()).toBeNull()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+
+    expect(dropZone()).toBeTruthy()
+  })
+
+  it('says why the import screen is showing rather than failing silently', async () => {
+    vi.useFakeTimers()
+    useChatStore.setState({ chat: null, activeMediaId: null })
+    repo.loadLastChat = neverSettles
+
+    render(<App />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+
+    expect(screen.getByRole('status').textContent).toMatch(/could not be loaded/i)
+  })
+
+  it('ignores a restore that finally arrives after the timeout', async () => {
+    vi.useFakeTimers()
+    useChatStore.setState({ chat: null, activeMediaId: null })
+    let resolveLoad!: (chat: StoredChat | null) => void
+    repo.loadLastChat = () =>
+      new Promise<StoredChat | null>((resolve) => {
+        resolveLoad = resolve
+      })
+
+    render(<App />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000)
+    })
+    expect(dropZone()).toBeTruthy()
+
+    // The unblocked read lands minutes later, by which time the user is part way
+    // through importing something else. It must not yank them out of that.
+    await act(async () => {
+      resolveLoad(makeChat())
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(dropZone()).toBeTruthy()
+    expect(useChatStore.getState().chat).toBeNull()
+  })
+
+  it('does not time out a restore that simply takes a while', async () => {
+    vi.useFakeTimers()
+    useChatStore.setState({ chat: null, activeMediaId: null })
+    repo.loadLastChat = () =>
+      new Promise<StoredChat | null>((resolve) => setTimeout(() => resolve(null), 3_000))
+
+    render(<App />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000)
+    })
+
+    expect(dropZone()).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+})
+
+describe('Escape with the import overlay open', () => {
+  it('cancels the import without closing the detail panel behind it', async () => {
+    useChatStore.setState({ chat: makeChat(), activeMediaId: 'm1' })
+    render(<App />)
+    await waitFor(() => expect(importButton()).toBeTruthy())
+    expect(screen.getByRole('complementary', { name: 'Message detail' })).toBeTruthy()
+
+    fireEvent.click(importButton())
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    // `inert` on the shell stops clicks and Tab but not window-level key
+    // listeners, so the app's Escape handler used to close the panel hidden
+    // underneath the overlay.
+    expect(dropZone()).toBeNull()
+    expect(useChatStore.getState().activeMediaId).toBe('m1')
+    expect(screen.getByRole('complementary', { name: 'Message detail' })).toBeTruthy()
+  })
+
+  it('leaves the first-run import screen alone, having nothing to cancel back to', async () => {
+    useChatStore.setState({ chat: null, activeMediaId: null })
+    render(<App />)
+    await waitFor(() => expect(dropZone()).toBeTruthy())
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    expect(dropZone()).toBeTruthy()
   })
 })

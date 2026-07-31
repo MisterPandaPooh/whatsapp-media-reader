@@ -25,6 +25,9 @@ interface Props {
    * "Open media reader", so the loaded chat is untouched.
    */
   onCancel?: () => void
+  /** Explains why the import screen is showing when the user did not ask for
+   *  it — today, only a restore that had to be abandoned. */
+  notice?: string
 }
 
 const STAGE_LABEL: Record<ImportProgress['stage'], string> = {
@@ -43,7 +46,7 @@ function titleFromZipName(name: string): string {
   return name.replace(/\.zip$/i, '')
 }
 
-export function ImportScreen({ onOpen, onCancel }: Props) {
+export function ImportScreen({ onOpen, onCancel, notice }: Props) {
   const [screen, setScreen] = useState<Screen>('drop')
   const [progress, setProgress] = useState<ImportProgress>({ stage: 'reading', progress: 0 })
   const [result, setResult] = useState<Result | null>(null)
@@ -61,6 +64,28 @@ export function ImportScreen({ onOpen, onCancel }: Props) {
       workerRef.current = null
     }
   }, [])
+
+  // Escape backs out of the overlay, the conventional gesture for a modal.
+  // Bound to `onCancel` and so registered only when backing out is actually
+  // possible: on first run there is no chat behind this screen to return to,
+  // and Escape must not dismiss the only thing on the page. The app shell
+  // suppresses its own Escape handling while this screen is mounted, so the
+  // panel underneath is not closed by the same keypress.
+  useEffect(() => {
+    if (!onCancel) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const tag = (e.target as HTMLElement | null)?.tagName
+      // Escape inside a field belongs to the field (e.g. the "which participant
+      // are you?" select on the summary screen).
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      // Consumed, so no other window listener acts on the same keypress.
+      e.preventDefault()
+      onCancel!()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
 
   function runImport(
     req: { kind: 'zip'; zipBytes: Uint8Array; title: string } | { kind: 'directory'; handle: FileSystemDirectoryHandle; title: string },
@@ -229,6 +254,11 @@ export function ImportScreen({ onOpen, onCancel }: Props) {
           onDrop={handleDrop}
           onClick={pickZip}
         >
+          {notice && (
+            <div className="import-notice" role="status">
+              {notice}
+            </div>
+          )}
           <div className="import-title">Drop your chat export here</div>
           <div className="import-sub">
             .zip archive, or a _chat.txt with its media folder. Everything is parsed locally — nothing is uploaded.

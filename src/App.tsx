@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ImportScreen } from './components/ImportScreen/ImportScreen'
 import { AppHeader } from './components/Header/AppHeader'
 import { Toolbar } from './components/Toolbar/Toolbar'
@@ -25,6 +25,20 @@ const SUPPORTED =
   typeof window.showDirectoryPicker === 'function' &&
   typeof navigator.storage?.getDirectory === 'function'
 
+/**
+ * How long to wait for IndexedDB before giving up and showing the import
+ * screen. A hung `open()` never rejects — a stale tab from an earlier session
+ * holding a `deleteDatabase` blocked, for instance, queues every open behind it
+ * indefinitely — and the try/catch below would wait forever, leaving `restoring`
+ * stuck and the app rendering a blank white page with no explanation.
+ *
+ * Generous on purpose: restoring a large chat is a single multi-megabyte
+ * structured-clone read, which is slow but not this slow. Ten seconds is well
+ * past any real read and still short of the point where a blank screen reads as
+ * broken.
+ */
+const RESTORE_TIMEOUT_MS = 10_000
+
 export default function App() {
   const chat = useChatStore((s) => s.chat)
   const setChat = useChatStore((s) => s.setChat)
@@ -37,6 +51,9 @@ export default function App() {
   // first and swapping to the grid a beat later is a visible flash of the wrong
   // screen on every reload.
   const [restoring, setRestoring] = useState(true)
+  // Set when the restore was abandoned on the timeout above, so the import
+  // screen can say why it is showing instead of the chat that was open last.
+  const [restoreTimedOut, setRestoreTimedOut] = useState(false)
   // A restored folder-backed chat whose permission has to be re-granted by a
   // click before we can read anything out of it.
   const [needsPermission, setNeedsPermission] = useState<StoredChat | null>(null)
@@ -50,7 +67,18 @@ export default function App() {
       setRestoring(false)
       return
     }
-    let cancelled = false
+    // Covers all three exits — unmount, the timeout firing, and the load
+    // finishing. Once it is true nothing below may touch state again, which is
+    // what stops a load that finally resolves *after* the timeout from
+    // clobbering an import the user has since started.
+    let settled = false
+    const timer = window.setTimeout(() => {
+      if (settled) return
+      settled = true
+      setRestoreTimedOut(true)
+      setRestoring(false)
+    }, RESTORE_TIMEOUT_MS)
+
     void (async () => {
       let stored: StoredChat | null = null
       try {
@@ -60,26 +88,30 @@ export default function App() {
         // screen — fall through to the import screen.
         stored = null
       }
-      if (cancelled) return
+      if (settled) return
       if (stored) {
         // Only *query* the permission here: requestPermission() needs transient
         // user activation, which a page-load effect does not have.
         const granted = await hasPermission(stored.storageRef)
-        if (cancelled) return
+        if (settled) return
         if (!granted) {
           setNeedsPermission(stored)
         } else {
           const reachable = await isStorageReachable(stored.storageRef)
-          if (cancelled) return
+          if (settled) return
           // Unreachable storage (OPFS evicted, folder deleted or moved) falls
           // through to the import screen rather than a grid of broken tiles.
           if (reachable) setChat(stored)
         }
       }
-      if (!cancelled) setRestoring(false)
+      settled = true
+      clearTimeout(timer)
+      setRestoring(false)
     })()
+
     return () => {
-      cancelled = true
+      settled = true
+      clearTimeout(timer)
     }
   }, [setChat])
 
@@ -89,7 +121,12 @@ export default function App() {
   // preventDefault() when it closes a popover — so one Escape never both
   // dismisses a popover and closes the panel.
   useEffect(() => {
-    if (!activeMediaId) return
+    // While the import overlay is up, Escape belongs to it (ImportScreen cancels
+    // itself with it). `inert` on the shell below stops clicks and Tab but has
+    // no effect on a window-level key listener, so without this guard the same
+    // Escape that dismisses the overlay would also close the detail panel
+    // hidden behind it.
+    if (!activeMediaId || importing) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -99,7 +136,12 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeMediaId, closePanel])
+  }, [activeMediaId, importing, closePanel])
+
+  // Stable identity: ImportScreen subscribes a window listener keyed on this
+  // prop, and a fresh arrow every render would tear it down and rebuild it on
+  // every keystroke.
+  const cancelImport = useCallback(() => setImporting(false), [])
 
   async function reconnect() {
     const pending = needsPermission
@@ -202,7 +244,18 @@ export default function App() {
     )
   }
 
-  if (!chat) return <ImportScreen onOpen={adoptImportedChat} />
+  if (!chat) {
+    return (
+      <ImportScreen
+        onOpen={adoptImportedChat}
+        notice={
+          restoreTimedOut
+            ? 'The chat you had open could not be loaded — browser storage did not respond. Closing any other tabs of this app and reloading usually clears it; otherwise import the export again.'
+            : undefined
+        }
+      />
+    )
+  }
 
   return (
     <>
@@ -211,7 +264,7 @@ export default function App() {
           filters and selection intact — no re-import, no re-read of IndexedDB.
           The reader goes `inert` meanwhile: it is still there, but Tab must not
           walk into a screen the user cannot see. */}
-      {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={() => setImporting(false)} />}
+      {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={cancelImport} />}
       <div className="app-shell" inert={importing}>
         <AppHeader title={chat.title} parsed={chat.parsed} onImport={() => setImporting(true)} />
         <Toolbar media={chat.parsed.media} resultCount={media.length} />
@@ -232,6 +285,7 @@ export default function App() {
             <DetailPanel
               activeItem={activeItem}
               messages={chat.parsed.messages}
+              allMedia={chat.parsed.media}
               filteredIds={filteredIds}
               meParticipant={chat.meParticipant}
               storageRef={chat.storageRef}

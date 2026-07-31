@@ -11,6 +11,10 @@ import './Panel.css'
 interface Props {
   activeItem: MediaItem
   messages: Message[]
+  /** The chat's *whole* media list, not the filtered one: the thread window can
+   *  contain messages whose attachment is currently filtered out of the grid,
+   *  and those still need their chip. */
+  allMedia: MediaItem[]
   filteredIds: string[]
   meParticipant: string | null
   storageRef: StorageRef
@@ -31,7 +35,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, storageRef }: Props) {
+export function DetailPanel({
+  activeItem,
+  messages,
+  allMedia,
+  filteredIds,
+  meParticipant,
+  storageRef,
+}: Props) {
   const openMedia = useChatStore((s) => s.openMedia)
   const closePanel = useChatStore((s) => s.closePanel)
   const toggleStarred = useChatStore((s) => s.toggleStarred)
@@ -68,6 +79,9 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
     () => threadWindow(messages, activeItem.anchorMessageId),
     [messages, activeItem.anchorMessageId],
   )
+  // Built once per chat rather than per render: `allMedia` can be six figures
+  // long, and the panel re-renders on every search keystroke.
+  const mediaById = useMemo(() => new Map(allMedia.map((m) => [m.id, m])), [allMedia])
   const previewable = !activeItem.missing && (activeItem.kind === 'photo' || activeItem.kind === 'video')
 
   // Object URL for the preview thumbnail, revoked whenever the item changes or
@@ -255,6 +269,7 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
         messages={messageWindow}
         anchorId={activeItem.anchorMessageId}
         meParticipant={meParticipant}
+        mediaById={mediaById}
       />
     </aside>
   )

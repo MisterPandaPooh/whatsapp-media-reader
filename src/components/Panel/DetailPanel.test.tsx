@@ -44,6 +44,7 @@ function renderPanel() {
     <DetailPanel
       activeItem={item}
       messages={messages}
+      allMedia={[item]}
       filteredIds={['m1']}
       meParticipant={null}
       storageRef={storageRef}

@@ -14,6 +14,18 @@
 .import-sub { font: 400 11px/1.5 var(--font-mono); color: var(--text-secondary); max-width: 400px; margin-bottom: 12px; }
 .import-actions { display: flex; gap: 6px; }
 .import-error { font: 400 11px/1.5 var(--font-mono); color: #b4322c; margin-top: 12px; }
+/* Sits above the drop-zone title: an explanation for why this screen appeared
+   unbidden, not an error the user caused. */
+.import-notice {
+  font: 400 11px/1.55 var(--font-sans);
+  color: #8a5a1b;
+  background: #fdf5e6;
+  border: 1px solid #e8d5ae;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 14px;
+  text-align: left;
+}
 .import-file-input { display: none; }
 .btn-primary, .btn-secondary, .btn-ghost {
   height: 28px; padding: 0 12px; border-radius: 6px; font: 500 11.5px/1 var(--font-sans); cursor: pointer;

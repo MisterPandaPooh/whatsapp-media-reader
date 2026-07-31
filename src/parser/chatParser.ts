@@ -26,6 +26,10 @@ export function parseChat(content: string, chatId: string): ParsedChat {
 
   const flush = () => {
     if (!pending) return
+    // Deliberately hashed from the *raw* line, before any marker stripping: the
+    // id seeds every MediaItem id, and those are the keys of the persisted
+    // `starred` map. Hashing the stripped text instead would silently orphan
+    // the stars of every chat imported by an earlier build.
     const id = generateId(pending.timestampMs, pending.sender, pending.text)
     const msg: Message = {
       id,
@@ -38,12 +42,19 @@ export function parseChat(content: string, chatId: string): ParsedChat {
     const filename = extractMediaFilename(pending.text)
     const url = pending.text.match(URL_RE)?.[0]
     if (filename) {
+      // The marker is WhatsApp's own bookkeeping, not something anyone typed,
+      // so it comes off the bubble text as well as the caption — otherwise the
+      // conversation thread renders a literal `<attached: IMG-0002.png>`. When
+      // the marker *was* the whole message this leaves the text empty, and
+      // MessageThread renders the attachment chip instead of an empty bubble.
+      const caption = stripMediaMarker(pending.text)
+      msg.text = caption
       const item: MediaItem = {
         id: `${id}-media`,
         kind: detectKind(filename),
         filename,
         size: 0,
-        caption: stripMediaMarker(pending.text),
+        caption,
         sender: pending.sender,
         timestampMs: pending.timestampMs,
         anchorMessageId: id,

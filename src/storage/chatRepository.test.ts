@@ -1,9 +1,16 @@
 // src/storage/chatRepository.test.ts
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveChat, loadLastChat, setStarred, reconcileStarredFlags, deleteChat } from './chatRepository'
+import {
+  saveChat,
+  loadLastChat,
+  setStarred,
+  reconcileStarredFlags,
+  stripStoredMediaMarkers,
+  deleteChat,
+} from './chatRepository'
 import { filteredMedia } from '../store/selectors'
 import { EMPTY_FILTERS } from '../store/useChatStore'
-import type { MediaItem, StoredChat } from '../types'
+import type { MediaItem, Message, StoredChat } from '../types'
 
 function makeMedia(id: string): MediaItem {
   return {
@@ -31,6 +38,71 @@ function makeChat(chatId: string, media: MediaItem[] = []): StoredChat {
     starred: {},
   }
 }
+
+function makeMessage(patch: Partial<Message> = {}): Message {
+  return {
+    id: 'msg-1',
+    sender: 'Ana',
+    timestampMs: 1_700_000_000_000,
+    text: '',
+    isSystemMessage: false,
+    ...patch,
+  }
+}
+
+describe('stripStoredMediaMarkers', () => {
+  it('strips a raw attachment marker left in the text by an older build', () => {
+    // The conversation thread renders Message.text verbatim, and parsing only
+    // happens at import time — so a chat already in IndexedDB would keep showing
+    // "<attached: …>" forever without this fix-up.
+    const chat = makeChat('chat-legacy', [makeMedia('media-1')])
+    chat.parsed.messages = [
+      makeMessage({ id: 'msg-1', mediaId: 'media-1', text: '‎<attached: media-1.jpg>' }),
+    ]
+
+    expect(stripStoredMediaMarkers(chat).parsed.messages[0].text).toBe('')
+  })
+
+  it('keeps the user caption of a captioned legacy attachment', () => {
+    const chat = makeChat('chat-legacy-2', [makeMedia('media-1')])
+    chat.parsed.messages = [
+      makeMessage({
+        id: 'msg-1',
+        mediaId: 'media-1',
+        text: '‎<attached: media-1.jpg>\nsunset at the beach',
+      }),
+    ]
+
+    expect(stripStoredMediaMarkers(chat).parsed.messages[0].text).toBe('sunset at the beach')
+  })
+
+  it('leaves a message with no attachment alone', () => {
+    const chat = makeChat('chat-legacy-3')
+    chat.parsed.messages = [makeMessage({ text: 'use <div> for the wrapper' })]
+
+    expect(stripStoredMediaMarkers(chat).parsed.messages[0].text).toBe('use <div> for the wrapper')
+  })
+
+  it('returns the same object when nothing needed stripping', () => {
+    // Every chat the current parser writes takes this path; copying the whole
+    // message array on each load would be pure waste.
+    const chat = makeChat('chat-current', [makeMedia('media-1')])
+    chat.parsed.messages = [makeMessage({ mediaId: 'media-1', text: 'sunset at the beach' })]
+
+    expect(stripStoredMediaMarkers(chat)).toBe(chat)
+  })
+
+  it('applies on the way out of IndexedDB', async () => {
+    const chat = makeChat('chat-legacy-load', [makeMedia('media-1')])
+    chat.parsed.messages = [
+      makeMessage({ mediaId: 'media-1', text: 'look ‎<attached: media-1.jpg> at this' }),
+    ]
+    await saveChat(chat)
+
+    const loaded = await loadLastChat()
+    expect(loaded!.parsed.messages[0].text).toBe('look at this')
+  })
+})
 
 describe('chatRepository', () => {
   beforeEach(async () => {

@@ -1,7 +1,7 @@
 // src/components/Panel/MessageThread.tsx
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import type { Message } from '../../types'
+import type { MediaItem, Message } from '../../types'
 
 function dateKey(ms: number): string {
   const d = new Date(ms)
@@ -34,10 +34,25 @@ function senderColor(name: string): string {
   return SENDER_COLORS[h % SENDER_COLORS.length]
 }
 
+/** Chip labels for a message that carried a file. `link` is absent on purpose:
+ *  a link "media item" is just a URL inside ordinary text, which the bubble
+ *  already shows, so a chip there would be noise. */
+const ATTACH_LABEL: Partial<Record<MediaItem['kind'], string>> = {
+  photo: 'Photo',
+  video: 'Video',
+  doc: 'Document',
+  voice: 'Voice note',
+}
+
 interface Props {
   messages: Message[]
   anchorId: string
   meParticipant: string | null
+  /** Media by id, for the attachment chip. The parser strips the raw
+   *  `<attached: …>` marker out of `Message.text`, so without this the file a
+   *  message carried would be invisible in the thread — and a message that was
+   *  nothing but a marker would render as an empty bubble. */
+  mediaById?: ReadonlyMap<string, MediaItem>
 }
 
 export interface MessageThreadHandle {
@@ -45,7 +60,7 @@ export interface MessageThreadHandle {
 }
 
 export const MessageThread = forwardRef<MessageThreadHandle, Props>(function MessageThread(
-  { messages, anchorId, meParticipant },
+  { messages, anchorId, meParticipant, mediaById },
   ref,
 ) {
   const parentRef = useRef<HTMLDivElement>(null)
@@ -140,6 +155,8 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
           const isAnchor = m.id === anchorId
           const sameSenderAsPrev =
             !dayBreak && !!prev && !prev.isSystemMessage && prev.sender === m.sender
+          const attachment = m.mediaId ? mediaById?.get(m.mediaId) : undefined
+          const attachLabel = attachment ? ATTACH_LABEL[attachment.kind] : undefined
           return (
             <div
               key={row.key}
@@ -173,7 +190,21 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
                         {m.sender}
                       </div>
                     )}
-                    <div className="bubble-text">{m.text}</div>
+                    {attachLabel && (
+                      <div
+                        className={`bubble-attach${
+                          attachment!.missing ? ' bubble-attach--missing' : ''
+                        }`}
+                      >
+                        <span className="bubble-attach-kind">
+                          {attachment!.missing ? `${attachLabel} · missing` : attachLabel}
+                        </span>
+                        <span className="bubble-attach-name">{attachment!.filename}</span>
+                      </div>
+                    )}
+                    {/* Empty only for a message that was nothing but an
+                        attachment marker — the chip above stands in for it. */}
+                    {m.text !== '' && <div className="bubble-text">{m.text}</div>}
                     <div className="bubble-time">{TIME_FMT.format(m.timestampMs)}</div>
                   </div>
                 </div>

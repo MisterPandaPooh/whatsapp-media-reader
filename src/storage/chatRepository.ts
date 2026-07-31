@@ -1,5 +1,6 @@
 // src/storage/chatRepository.ts
 import { getDb } from './db'
+import { stripMediaMarker } from '../parser/mediaIndicators'
 import type { StoredChat } from '../types'
 
 export async function saveChat(chat: StoredChat): Promise<void> {
@@ -24,12 +25,35 @@ export function reconcileStarredFlags(chat: StoredChat): StoredChat {
   return { ...chat, parsed: { ...chat.parsed, media } }
 }
 
+/**
+ * A chat imported before the parser learned to strip attachment markers still
+ * carries the raw `<attached: IMG-0002.png>` in `Message.text`, and the
+ * conversation thread renders that text verbatim. Parsing is import-time only,
+ * so without this fix-up an existing library would keep showing the marker
+ * until it was re-imported — the very defect the parser change removes.
+ *
+ * Only media-bearing messages are considered, and the chat is returned
+ * unchanged (same identity, no copying) when nothing needed stripping, which is
+ * the case for everything the current parser writes.
+ */
+export function stripStoredMediaMarkers(chat: StoredChat): StoredChat {
+  let changed = false
+  const messages = chat.parsed.messages.map((m) => {
+    if (!m.mediaId) return m
+    const text = stripMediaMarker(m.text)
+    if (text === m.text) return m
+    changed = true
+    return { ...m, text }
+  })
+  return changed ? { ...chat, parsed: { ...chat.parsed, messages } } : chat
+}
+
 export async function loadLastChat(): Promise<StoredChat | null> {
   const db = await getDb()
   const last = await db.get('meta', 'lastChatId')
   if (!last) return null
   const chat = await db.get('chats', last.value)
-  return chat ? reconcileStarredFlags(chat) : null
+  return chat ? stripStoredMediaMarkers(reconcileStarredFlags(chat)) : null
 }
 
 /**
