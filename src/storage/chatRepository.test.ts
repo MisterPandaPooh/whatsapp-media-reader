@@ -1,6 +1,6 @@
 // src/storage/chatRepository.test.ts
 import { describe, it, expect, beforeEach } from 'vitest'
-import { saveChat, loadLastChat, setStarred, reconcileStarredFlags } from './chatRepository'
+import { saveChat, loadLastChat, setStarred, reconcileStarredFlags, deleteChat } from './chatRepository'
 import { filteredMedia } from '../store/selectors'
 import { EMPTY_FILTERS } from '../store/useChatStore'
 import type { MediaItem, StoredChat } from '../types'
@@ -95,5 +95,24 @@ describe('chatRepository', () => {
     const chat = makeChat('chat-f', [makeMedia('media-1')])
     const same = reconcileStarredFlags(chat)
     expect(same.parsed.media[0]).toBe(chat.parsed.media[0])
+  })
+
+  it('drops a replaced chat without disturbing the one that replaced it', async () => {
+    // The order the app uses: the new chat is saved (repointing lastChatId)
+    // before the old record is deleted.
+    await saveChat(makeChat('chat-old', [makeMedia('media-1')]))
+    await saveChat(makeChat('chat-new', [makeMedia('media-2')]))
+
+    await deleteChat('chat-old')
+
+    const loaded = await loadLastChat()
+    expect(loaded?.chatId).toBe('chat-new')
+    expect(loaded?.parsed.media.map((m) => m.id)).toEqual(['media-2'])
+  })
+
+  it('is a no-op when the chat is already gone', async () => {
+    await saveChat(makeChat('chat-g'))
+    await expect(deleteChat('never-existed')).resolves.toBeUndefined()
+    expect((await loadLastChat())?.chatId).toBe('chat-g')
   })
 })

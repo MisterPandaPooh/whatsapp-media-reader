@@ -45,16 +45,23 @@ export function Popover({ anchorRef, className, label, children }: Props) {
       const below = a.bottom + OFFSET
       const above = a.top - OFFSET - h
       const top = below + h > window.innerHeight - MARGIN && above > MARGIN ? above : below
-      setStyle({ position: 'fixed', top, left, visibility: 'visible' })
+      // Bail out when nothing moved: place() runs from a ResizeObserver, and a
+      // fresh style object every time would re-render for no reason.
+      setStyle((prev) => (prev.top === top && prev.left === left ? prev : { position: 'fixed', top, left }))
     }
     place()
     window.addEventListener('resize', place)
     // Capture phase: any ancestor scrolling moves the anchor, and scroll events
     // on inner elements do not bubble.
     window.addEventListener('scroll', place, true)
+    // The popover's own height is an input to the placement (it decides whether
+    // it fits below), and the sender list changes height as you search.
+    const observer = new ResizeObserver(place)
+    if (ref.current) observer.observe(ref.current)
     return () => {
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
+      observer.disconnect()
     }
   }, [anchorRef])
 

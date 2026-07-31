@@ -205,36 +205,40 @@ export default function App() {
   if (!chat) return <ImportScreen onOpen={adoptImportedChat} />
 
   return (
-    <div className="app-shell">
+    <>
       {/* Rendered over the reader (fixed, full-screen) rather than instead of
           it, so cancelling restores the loaded chat with its scroll position,
-          filters and selection intact — no re-import, no re-read of IndexedDB. */}
+          filters and selection intact — no re-import, no re-read of IndexedDB.
+          The reader goes `inert` meanwhile: it is still there, but Tab must not
+          walk into a screen the user cannot see. */}
       {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={() => setImporting(false)} />}
-      <AppHeader title={chat.title} parsed={chat.parsed} onImport={() => setImporting(true)} />
-      <Toolbar media={chat.parsed.media} resultCount={media.length} />
-      <div className="app-body">
-        <main className="app-main">
-          <MediaGrid
-            // Remounts on a chat switch. useLazyThumbnail collapses every
-            // directory handle to the same effect key, so a tile carried over
-            // from a previous chat could otherwise read from the old folder.
-            key={chat.chatId}
-            items={media}
-            storageRef={chat.storageRef}
-            activeMediaId={activeMediaId}
-            onOpen={openMedia}
-          />
-        </main>
-        {activeItem && (
-          <DetailPanel
-            activeItem={activeItem}
-            messages={chat.parsed.messages}
-            filteredIds={filteredIds}
-            meParticipant={chat.meParticipant}
-            storageRef={chat.storageRef}
-          />
-        )}
+      <div className="app-shell" inert={importing}>
+        <AppHeader title={chat.title} parsed={chat.parsed} onImport={() => setImporting(true)} />
+        <Toolbar media={chat.parsed.media} resultCount={media.length} />
+        <div className="app-body">
+          <main className="app-main">
+            <MediaGrid
+              // Remounts on a chat switch. useLazyThumbnail collapses every
+              // directory handle to the same effect key, so a tile carried over
+              // from a previous chat could otherwise read from the old folder.
+              key={chat.chatId}
+              items={media}
+              storageRef={chat.storageRef}
+              activeMediaId={activeMediaId}
+              onOpen={openMedia}
+            />
+          </main>
+          {activeItem && (
+            <DetailPanel
+              activeItem={activeItem}
+              messages={chat.parsed.messages}
+              filteredIds={filteredIds}
+              meParticipant={chat.meParticipant}
+              storageRef={chat.storageRef}
+            />
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

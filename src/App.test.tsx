@@ -92,6 +92,18 @@ describe('App header', () => {
     expect(dropZone()).toBeTruthy()
     // The reader is still mounted underneath — that is what makes cancelling free.
     expect(screen.getByRole('heading', { name: 'Family Trip' })).toBeTruthy()
+    // …but Tab must not walk into it while the overlay covers it.
+    expect(document.querySelector('.app-shell')?.hasAttribute('inert')).toBe(true)
+  })
+
+  it('hands the reader back its interactivity on cancel', async () => {
+    render(<App />)
+    await waitFor(() => expect(importButton()).toBeTruthy())
+    fireEvent.click(importButton())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(document.querySelector('.app-shell')?.hasAttribute('inert')).toBe(false)
   })
 
   it('returns to the loaded chat on cancel, without touching it', async () => {
