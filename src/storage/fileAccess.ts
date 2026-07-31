@@ -10,10 +10,36 @@ export async function getChatDirectory(ref: StorageRef): Promise<FileSystemDirec
   return root.getDirectoryHandle(ref.folder, { create: false })
 }
 
+/**
+ * macOS writes filenames decomposed (NFD), while a transcript usually spells the
+ * same name composed (NFC). They render identically and are canonically
+ * equivalent, but `getFileHandle` matches on the exact string, so the composed
+ * spelling can miss a file that is sitting right there. Trying the other
+ * normalization is cheap and only ever runs after an exact miss.
+ */
+async function openByAnyNormalization(
+  dir: FileSystemDirectoryHandle,
+  filename: string,
+): Promise<FileSystemFileHandle | null> {
+  const candidates = [filename, filename.normalize('NFC'), filename.normalize('NFD')]
+  const tried = new Set<string>()
+  for (const name of candidates) {
+    if (tried.has(name)) continue
+    tried.add(name)
+    try {
+      return await dir.getFileHandle(name)
+    } catch {
+      // Not under this spelling; fall through to the next.
+    }
+  }
+  return null
+}
+
 export async function readMediaFile(ref: StorageRef, filename: string): Promise<File | null> {
   try {
     const dir = await getChatDirectory(ref)
-    const fileHandle = await dir.getFileHandle(filename)
+    const fileHandle = await openByAnyNormalization(dir, filename)
+    if (!fileHandle) return null
     return await fileHandle.getFile()
   } catch {
     return null

@@ -70,4 +70,34 @@ describe('reconcileMediaWithFiles', () => {
     )
     expect(results.map((r) => r.missing)).toEqual([false, true, false])
   })
+
+  // macOS writes filenames decomposed. A transcript spelling the same name
+  // composed is canonically equivalent and looks identical, but is a different
+  // string — so without folding, a file plainly present reports as missing.
+  it('matches a composed transcript name against a decomposed name on disk', () => {
+    const composed = 'café.jpg'.normalize('NFC')
+    const decomposed = 'café.jpg'.normalize('NFD')
+    expect(composed).not.toBe(decomposed) // guard: the fixture must be meaningful
+
+    const [result] = reconcileMediaWithFiles([item(composed)], new Map([[decomposed, 2048]]))
+    expect(result.missing).toBe(false)
+    expect(result.size).toBe(2048)
+  })
+
+  it('matches a decomposed transcript name against a composed name on disk', () => {
+    const composed = 'Relatório Anual.pdf'.normalize('NFC')
+    const decomposed = 'Relatório Anual.pdf'.normalize('NFD')
+
+    const [result] = reconcileMediaWithFiles([item(decomposed)], new Map([[composed, 512]]))
+    expect(result.missing).toBe(false)
+  })
+
+  // Folding must not make unrelated names collide.
+  it('still reports a genuinely absent accented filename as missing', () => {
+    const [result] = reconcileMediaWithFiles(
+      [item('café.jpg')],
+      new Map([['tea.jpg', 1], ['cafe.jpg', 2]]),
+    )
+    expect(result.missing).toBe(true)
+  })
 })
