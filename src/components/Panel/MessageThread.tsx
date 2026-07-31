@@ -49,7 +49,6 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
   ref,
 ) {
   const parentRef = useRef<HTMLDivElement>(null)
-  const anchorIndex = messages.findIndex((m) => m.id === anchorId)
   // Bumped on every "jump to message"; the odd/even class swap below restarts
   // the CSS animation when the button is clicked again mid-flash.
   const [flashSeq, setFlashSeq] = useState(0)
@@ -66,13 +65,22 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
     overscan: 8,
     // Row measurement happens inside a layout effect; letting the virtualizer
     // flushSync from there makes React log "flushSync was called from inside a
-    // lifecycle method" for every row.
+    // lifecycle method" for every row. The tradeoff: this also opts out of the
+    // synchronous commit virtual-core asks for, so a one-frame flicker is
+    // theoretically possible. Harmless for a 101-row text list, and the size
+    // cache it scrolls against updates synchronously either way.
     useFlushSync: false,
   })
 
+  // Deliberately keyed on `anchorId` and the window array, NOT on anchorIndex:
+  // threadWindow clamps the anchor to local index 50, so the index is 50 both
+  // before and after a prev/next step for any media item more than 50 messages
+  // into the chat. Keying on the index alone silently skips the re-centre for
+  // essentially every real item (covered by MessageThread.test.tsx).
   const scrollToAnchor = useCallback(() => {
-    if (anchorIndex >= 0) virtualizer.scrollToIndex(anchorIndex, { align: 'center' })
-  }, [anchorIndex, virtualizer])
+    const index = messages.findIndex((m) => m.id === anchorId)
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' })
+  }, [messages, anchorId, virtualizer])
 
   // Centring the anchor is the whole point of this component. A scroll issued
   // before the rows have measured would be computed from the estimate above and
@@ -80,7 +88,6 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
   // across animation frames until the measured offset settles, so one call per
   // anchor change is enough. Verified in the browser: the anchor lands within
   // ~2px of the viewport centre on open and on every prev/next step.
-  // Re-runs whenever the anchor — and therefore the window — changes.
   useEffect(() => {
     scrollToAnchor()
   }, [scrollToAnchor])
@@ -115,7 +122,15 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
   }
 
   return (
-    <div ref={parentRef} className="thread-scroll">
+    <div
+      ref={parentRef}
+      className="thread-scroll"
+      // Focusable so keyboard users can scroll the conversation (WCAG 2.1.1);
+      // a scroll container with no focusable content is otherwise unreachable.
+      tabIndex={0}
+      role="log"
+      aria-label="Conversation around this item"
+    >
       <div className="thread-sizer" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((row) => {
           const m = messages[row.index]

@@ -1,5 +1,6 @@
 // src/components/Panel/DetailPanel.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useChatStore } from '../../store/useChatStore'
 import { threadWindow } from '../../store/selectors'
 import { readMediaFile } from '../../storage/fileAccess'
@@ -35,6 +36,7 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
   const closePanel = useChatStore((s) => s.closePanel)
   const toggleStarred = useChatStore((s) => s.toggleStarred)
   const threadRef = useRef<MessageThreadHandle>(null)
+  const panelRef = useRef<HTMLElement>(null)
   const alive = useRef(true)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,8 +49,25 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
     }
   }, [])
 
+  // Move focus into the panel on open so Escape and Tab land here, and hand it
+  // back to whatever opened it (the grid tile) on close.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    panelRef.current?.focus()
+    return () => {
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
+  }, [])
+
   const position = filteredIds.indexOf(activeItem.id)
-  const messageWindow = threadWindow(messages, activeItem.anchorMessageId)
+  // threadWindow scans the whole parsed messages array, which can be six
+  // figures long; without this the scan reruns on every parent re-render (e.g.
+  // every search keystroke) and hands MessageThread a fresh array identity,
+  // which would also re-trigger its scroll effect.
+  const messageWindow = useMemo(
+    () => threadWindow(messages, activeItem.anchorMessageId),
+    [messages, activeItem.anchorMessageId],
+  )
   const previewable = !activeItem.missing && (activeItem.kind === 'photo' || activeItem.kind === 'video')
 
   // Object URL for the preview thumbnail, revoked whenever the item changes or
@@ -76,9 +95,25 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
   useEffect(() => setError(null), [activeItem.id])
 
   function step(delta: number) {
-    if (position === -1) return
+    // The active item can fall outside the current filter (the user narrowed
+    // the filters while it was open). Rather than dead-ending with Close as the
+    // only exit, let Next drop back into the filtered set at the start.
+    if (position === -1) {
+      if (delta > 0 && filteredIds.length > 0) openMedia(filteredIds[0])
+      return
+    }
     const next = filteredIds[position + delta]
     if (next) openMedia(next)
+  }
+
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLElement>) {
+    if (e.key !== 'Escape') return
+    // Scoped to the panel subtree rather than a window listener, and the
+    // propagation stop keeps a single Escape from also reaching the Toolbar's
+    // window-level handler (React's stopPropagation stops the native event at
+    // the root container, before it can bubble to window).
+    e.stopPropagation()
+    closePanel()
   }
 
   async function handleDownload() {
@@ -111,10 +146,17 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
   }
 
   const canPrev = position > 0
-  const canNext = position >= 0 && position < filteredIds.length - 1
+  const canNext =
+    position === -1 ? filteredIds.length > 0 : position < filteredIds.length - 1
 
   return (
-    <aside className="detail-panel" aria-label="Message detail">
+    <aside
+      ref={panelRef}
+      className="detail-panel"
+      aria-label="Message detail"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+    >
       <div className="panel-header">
         <div className="panel-title">In conversation</div>
         <div className="panel-position">
@@ -156,7 +198,9 @@ export function DetailPanel({ activeItem, messages, filteredIds, meParticipant, 
         <div className={`preview-thumb preview-thumb--${activeItem.kind}`}>
           {previewUrl && activeItem.kind === 'photo' && <img src={previewUrl} alt="" />}
           {previewUrl && activeItem.kind === 'video' && (
-            <video src={previewUrl} muted playsInline preload="metadata" />
+            // The media fragment seeks to the first frame; without it the
+            // element paints an empty box until it is played.
+            <video src={`${previewUrl}#t=0.1`} muted playsInline preload="metadata" />
           )}
           {!previewUrl && (
             <span className="preview-thumb-label">

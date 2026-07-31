@@ -152,6 +152,13 @@
   min-height: 0;
   overscroll-behavior: contain;
 }
+.thread-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.detail-panel:focus {
+  outline: none;
+}
 .thread-scroll--empty {
   display: flex;
   align-items: center;
@@ -230,12 +237,32 @@
   box-shadow: inset -3px 0 0 var(--accent);
 }
 /* Outline rather than background so the flash composes with the anchor bar
-   and with the differing bubble backgrounds of own vs. others' messages. */
-.bubble--flash-a,
-.bubble--flash-b {
-  animation: bubble-flash 0.9s ease-out;
+   and with the differing bubble backgrounds of own vs. others' messages.
+
+   The two rules are duplicated on purpose. A running CSS animation only
+   restarts when the computed `animation-name` actually changes, so swapping
+   between two classes that resolve to the SAME keyframes name does nothing —
+   the "jump to message" button clicked mid-flash would not re-trigger.
+   MessageThread alternates -a/-b, and these must be distinct names for that
+   alternation to mean anything. */
+.bubble--flash-a {
+  animation: bubble-flash-a 0.9s ease-out;
 }
-@keyframes bubble-flash {
+.bubble--flash-b {
+  animation: bubble-flash-b 0.9s ease-out;
+}
+@keyframes bubble-flash-a {
+  0%,
+  35% {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 1px;
+  }
+}
+@keyframes bubble-flash-b {
   0%,
   35% {
     outline: 2px solid var(--accent);
