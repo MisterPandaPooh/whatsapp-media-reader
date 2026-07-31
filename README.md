@@ -1,32 +1,78 @@
-# React + TypeScript + Vite
+# WhatsApp Media Reader
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A reader for an exported WhatsApp group chat, inverted: **media is the index, the conversation is the detail view.** You browse what was sent, and use any file as a way back into its moment in the thread.
 
-Currently, two official plugins are available:
+Everything happens in your browser. The export is never uploaded anywhere — there is no backend.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Running it
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Then open the printed URL (usually `http://localhost:5173`).
+
+**Chrome, Edge, or another Chromium browser is required.** The app reads files straight off your disk using the File System Access API and stores extracted media in OPFS; Safari and Firefox don't support the pickers, and the app will say so rather than half-work.
+
+## Getting an export out of WhatsApp
+
+In WhatsApp: open the chat → tap the chat name → **Export Chat** → **Attach Media**. You'll get a `.zip`.
+
+Drop that zip on the import screen. An already-unzipped folder works too — pick it with "Choose folder…" instead.
+
+An export made *without* media still works: the messages and the timeline are all there, and the files that weren't included show as "Missing" tiles.
+
+## Using it
+
+- **Grid** — every media item in the export, newest first. Photos and videos show thumbnails; documents, voice notes and links get cards. Thumbnails load as you scroll, so a chat with thousands of files opens instantly.
+- **Filters compose** — type, sender, date (presets or a calendar range), free-text search, and starred-only, with a live result count.
+- **Click any tile** to open the conversation beside it: the real thread, 50 messages either side, scrolled to the highlighted message that carried the file. The grid stays where it was.
+- **↑ / ↓ in the panel** step through the media you've currently filtered to — so the panel becomes a way to read the chat one artefact at a time.
+- **Star** anything; stars survive a reload. So does the chat itself — reopen the tab and it's still there.
+- **"Import chat…"** in the header swaps in a different export. Importing replaces the current chat.
+
+## Commands
+
+```bash
+npm run dev      # dev server
+npm test         # test suite
+npm run build    # typecheck + production build
+npm run lint     # oxlint
+```
+
+Note: use `npx tsc -b` to typecheck, not `tsc --noEmit`. The root `tsconfig.json` is a solution file with no `files`, so the `--noEmit` form silently checks nothing.
+
+## How it fits together
+
+```
+src/
+  parser/      _chat.txt → messages + media items
+               dateFormats      regional date/time prefixes (US, EU, ISO, German, iOS bracketed, …)
+               mediaIndicators  attachment markers, media kinds, system-message detection
+               chatParser       line walker: message boundaries, multiline joins, media linking
+               id               deterministic message ids, stable across re-imports
+  worker/      import runs off the main thread so the UI never freezes
+               unzipStreaming   streaming unzip (one file in memory at a time, not the whole archive)
+               zipExtract       writes media into OPFS as it decompresses
+               mediaCatalog     reconciles referenced filenames against what is actually on disk
+               importWorker     orchestrates zip vs. folder import, reports progress
+  storage/     db, chatRepository (IndexedDB), fileAccess (OPFS + directory handles behind one interface)
+  store/       Zustand state; selectors for filtering and the ±50 thread window
+  components/  Header, ImportScreen, Grid, Toolbar, Panel
+```
+
+Three decisions worth knowing:
+
+**Zip and folder imports converge.** A zip is streamed into OPFS; a picked folder is used in place. After that, everything reads through one `FileSystemDirectoryHandle`-shaped interface and never needs to know which it was.
+
+**Message ids are content hashes**, not array positions. That is what lets stars and "jump to message" survive re-importing the same export.
+
+**Filename matching is deliberately forgiving.** Export zips and filesystems disagree about filenames more than you would expect — macOS stores them decomposed (NFD) while transcripts spell them composed (NFC), and Finder's "Compress" writes UTF-8 names without setting the zip's UTF-8 flag. Both are reconciled before a file is declared missing, because "a file you know you sent shows as Missing" is the failure mode that makes a tool like this untrustworthy.
+
+## Known gaps
+
+- Video tiles have no duration badge and voice notes have no waveform — the design calls for both, but duration is never extracted from the media.
+- The import summary is a plain line of counts; the design has a stats grid, a type-breakdown bar and participant chips.
+- Search covers captions, filenames and senders. It does not find a media item by the text of a *neighbouring* message.
+- One chat at a time — importing replaces what is loaded.
