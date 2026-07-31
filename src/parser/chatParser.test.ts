@@ -61,6 +61,13 @@ describe('parseChat', () => {
     expect(last.text.endsWith('\n')).toBe(false)
   })
 
+  it('does not append a spurious trailing newline when content ends with two blank lines', () => {
+    const content = '3/9/25, 8:14 AM - Ana Ferreira: I left my keys at home\n\n'
+    const { messages } = parseChat(content, 'chat-5')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('I left my keys at home')
+  })
+
   it('preserves an intentional blank line in the middle of a multiline message', () => {
     const content = [
       '3/9/25, 8:14 AM - Ana Ferreira: First paragraph',

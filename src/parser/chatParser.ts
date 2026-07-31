@@ -16,7 +16,7 @@ function splitSenderContent(rest: string): { sender: string; content: string } {
 
 export function parseChat(content: string, chatId: string): ParsedChat {
   const lines = content.split(/\r?\n/)
-  if (lines.length && lines[lines.length - 1] === '') lines.pop()
+  while (lines.length && lines[lines.length - 1] === '') lines.pop()
   const generateId = makeIdGenerator(chatId)
   const participants = new Set<string>()
   const messages: Message[] = []
