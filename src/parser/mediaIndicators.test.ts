@@ -28,4 +28,13 @@ describe('isSystemMessage', () => {
   it('does not flag a normal message', () => {
     expect(isSystemMessage('Landing at 14:20, anyone on the same flight?')).toBe(false)
   })
+  it('does not flag ordinary sentences containing "left"', () => {
+    expect(isSystemMessage('I left my keys at home')).toBe(false)
+  })
+  it('does not flag ordinary sentences containing "added"', () => {
+    expect(isSystemMessage('just added the photos')).toBe(false)
+  })
+  it('does not flag ordinary sentences containing "removed"', () => {
+    expect(isSystemMessage('he removed himself from the trip')).toBe(false)
+  })
 })

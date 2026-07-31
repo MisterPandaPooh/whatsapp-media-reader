@@ -27,7 +27,6 @@ const SYSTEM_INDICATORS = [
   'changed the subject', "changed this group's icon", 'changed the group description',
   'Messages and calls are end-to-end encrypted', 'security code changed',
   'turned on disappearing messages', 'turned off disappearing messages',
-  'added', 'removed', 'left',
 ]
 
 export function isSystemMessage(text: string): boolean {

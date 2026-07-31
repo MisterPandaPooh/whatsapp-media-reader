@@ -73,7 +73,7 @@ export function parseChat(content: string, chatId: string): ParsedChat {
   }
 
   for (const rawLine of lines) {
-    if (!rawLine.trim()) continue
+    if (!rawLine.trim() && !pending) continue
     const dateMatch = matchDatePrefix(rawLine)
     if (dateMatch) {
       flush()

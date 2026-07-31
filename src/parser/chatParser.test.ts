@@ -44,4 +44,24 @@ describe('parseChat', () => {
     const b = parseChat(fixture('basic.txt'), 'chat-1')
     expect(a.messages.map((m) => m.id)).toEqual(b.messages.map((m) => m.id))
   })
+
+  it('retains a real sender and does not flag their message as a system message when the text contains "left"/"added"/"removed"', () => {
+    const content = '3/9/25, 8:14 AM - Ana Ferreira: I left my keys at home\n'
+    const { messages, participants } = parseChat(content, 'chat-3')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].sender).toBe('Ana Ferreira')
+    expect(messages[0].isSystemMessage).toBe(false)
+    expect(participants).toContain('Ana Ferreira')
+  })
+
+  it('preserves an intentional blank line in the middle of a multiline message', () => {
+    const content = [
+      '3/9/25, 8:14 AM - Ana Ferreira: First paragraph',
+      '',
+      'Second paragraph',
+    ].join('\n')
+    const { messages } = parseChat(content, 'chat-4')
+    expect(messages).toHaveLength(1)
+    expect(messages[0].text).toBe('First paragraph\n\nSecond paragraph')
+  })
 })
