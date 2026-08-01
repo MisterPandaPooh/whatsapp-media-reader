@@ -78,6 +78,21 @@ export async function deleteChat(chatId: string): Promise<void> {
   await db.delete('chats', chatId)
 }
 
+/**
+ * Removes a chat *and* forgets that it was the one open, which is what
+ * `deleteChat` deliberately does not do. Used by "Close chat": the reader is
+ * going back to the import screen and must still be there after a reload, so
+ * the record and the `lastChatId` pointing at it go in one transaction — a
+ * pointer left behind would survive a crash between two separate writes.
+ */
+export async function forgetChat(chatId: string): Promise<void> {
+  const db = await getDb()
+  const tx = db.transaction(['chats', 'meta'], 'readwrite')
+  await tx.objectStore('chats').delete(chatId)
+  await tx.objectStore('meta').delete('lastChatId')
+  await tx.done
+}
+
 export async function setStarred(chatId: string, mediaId: string, starred: boolean): Promise<void> {
   const db = await getDb()
   const tx = db.transaction('chats', 'readwrite')

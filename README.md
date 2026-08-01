@@ -32,6 +32,7 @@ An export made *without* media still works: the messages and the timeline are al
 - **Star** anything; stars survive a reload. So does the chat itself — reopen the tab and it's still there.
 - **Double-click a photo or video** — in the grid or in the message feed — to open it fullscreen. Arrow keys move between items, Escape or a click outside closes.
 - **"Import chat…"** in the header swaps in a different export. Importing replaces the current chat.
+- **"Close chat"** goes back to the drop screen and clears the export from the browser: the stored record, your stars, and — for a zip import — the unpacked media. Your own files are never touched, so a folder import only loses the reader's record of it.
 
 ## Feature flags
 

@@ -7,6 +7,7 @@ import {
   reconcileStarredFlags,
   stripStoredMediaMarkers,
   deleteChat,
+  forgetChat,
 } from './chatRepository'
 import { filteredMedia } from '../store/selectors'
 import { EMPTY_FILTERS } from '../store/useChatStore'
@@ -219,5 +220,32 @@ describe('chatRepository', () => {
     await saveChat(makeChat('chat-g'))
     await expect(deleteChat('never-existed')).resolves.toBeUndefined()
     expect((await loadLastChat())?.chatId).toBe('chat-g')
+  })
+})
+
+describe('forgetChat', () => {
+  it('leaves nothing to restore on the next load', async () => {
+    await saveChat(makeChat('chat-h', [makeMedia('media-1')]))
+
+    await forgetChat('chat-h')
+
+    // Both halves matter: the record is gone AND lastChatId no longer points
+    // at it, so a reload lands on the import screen rather than briefly trying
+    // to restore a chat that is not there.
+    expect(await loadLastChat()).toBeNull()
+  })
+
+  it('does not resurrect an earlier chat by clearing only the record', async () => {
+    await saveChat(makeChat('chat-i'))
+    await saveChat(makeChat('chat-j'))
+
+    await forgetChat('chat-j')
+
+    expect(await loadLastChat()).toBeNull()
+  })
+
+  it('is a no-op for a chat that is already gone', async () => {
+    await expect(forgetChat('never-existed')).resolves.toBeUndefined()
+    expect(await loadLastChat()).toBeNull()
   })
 })

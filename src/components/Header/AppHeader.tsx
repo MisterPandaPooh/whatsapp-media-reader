@@ -8,9 +8,11 @@ interface Props {
   title: string
   parsed: ParsedChat
   onImport: () => void
+  /** Drops this chat and goes back to the import screen. */
+  onClose: () => void
 }
 
-export function AppHeader({ title, parsed, onImport }: Props) {
+export function AppHeader({ title, parsed, onImport, onClose }: Props) {
   // Scans every message for the date range; the chat can be six figures long
   // and this re-renders on every keystroke in the toolbar's search box.
   const meta = useMemo(() => chatMetaLine(parsed), [parsed])
@@ -28,6 +30,11 @@ export function AppHeader({ title, parsed, onImport }: Props) {
       </div>
       <button type="button" className="header-btn" onClick={onImport}>
         Import chat…
+      </button>
+      {/* Quieter than Import: it is the destructive one, so it should not be
+          the button the eye lands on first. */}
+      <button type="button" className="header-btn header-btn--quiet" onClick={onClose}>
+        Close chat
       </button>
     </header>
   )

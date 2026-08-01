@@ -9,7 +9,7 @@ import { MediaLightbox } from './components/Gallery/MediaLightbox'
 import { galleryItems } from './components/Gallery/galleryItems'
 import { useChatStore } from './store/useChatStore'
 import { filteredMedia } from './store/selectors'
-import { deleteChat, loadLastChat } from './storage/chatRepository'
+import { deleteChat, forgetChat, loadLastChat } from './storage/chatRepository'
 import { needsReparse, reparseChat } from './storage/reparseChat'
 import {
   discardStorage,
@@ -73,6 +73,11 @@ export default function App() {
   // state because the Escape effect below reads it — the gallery, the import
   // screen and the panel all answer to the same key, and only one of them may.
   const [galleryOpen, setGalleryOpen] = useState(false)
+  // "Close chat" pressed. Confirmed rather than immediate: it throws away the
+  // stars, and for a zip import the unpacked media too — neither of which can
+  // be got back without importing the export again.
+  const [closing, setClosing] = useState(false)
+  const [closeError, setCloseError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!SUPPORTED) {
@@ -155,6 +160,20 @@ export default function App() {
     }
   }, [upgrading, setChat])
 
+  // Escape backs out of the close confirmation, the conventional gesture for a
+  // modal. preventDefault marks the key as consumed so the panel's own handler
+  // — which honours defaultPrevented — leaves the selection alone.
+  useEffect(() => {
+    if (!closing) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      e.preventDefault()
+      setClosing(false)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [closing])
+
   // Escape pressed anywhere outside the panel (a grid tile, the page body)
   // closes it. The panel's own handler stops propagation before the event
   // reaches window, and the Toolbar's capture-phase handler calls
@@ -172,7 +191,7 @@ export default function App() {
     // dismiss the gallery *and* the panel behind it, so a double-click into
     // fullscreen and a press of Escape would leave the reader with nothing
     // selected at all.
-    if (!activeMediaId || importing || galleryOpen) return
+    if (!activeMediaId || importing || galleryOpen || closing) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -182,7 +201,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeMediaId, importing, galleryOpen, closePanel])
+  }, [activeMediaId, importing, galleryOpen, closing, closePanel])
 
   // Stable identity: ImportScreen subscribes a window listener keyed on this
   // prop, and a fresh arrow every render would tear it down and rebuild it on
@@ -229,6 +248,37 @@ export default function App() {
       void deleteChat(previous.chatId)
       void discardStorage(previous.storageRef)
     }
+  }
+
+  /**
+   * Drop the loaded chat and go back to the import screen. The IndexedDB record
+   * and `lastChatId` go together so a reload really does land on the drop zone,
+   * and the OPFS copy goes with them — leaving it behind would keep a full
+   * duplicate of the export in origin storage that nothing can ever reach
+   * again. A folder-backed chat's own folder is untouched: it is the user's,
+   * and we only ever had read permission on it.
+   */
+  async function closeChat() {
+    const current = useChatStore.getState().chat
+    if (!current) return
+    setCloseError(null)
+    try {
+      await forgetChat(current.chatId)
+    } catch (err) {
+      // Stop rather than pretend: the UI would show the import screen while a
+      // reload brought the chat straight back.
+      setCloseError(
+        `Could not close this chat: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      return
+    }
+    // Best-effort, and only after the record is gone: media with no record is
+    // merely wasted space, whereas a record whose media has been deleted is a
+    // library of broken tiles.
+    void discardStorage(current.storageRef)
+    setGalleryOpen(false)
+    setClosing(false)
+    setChat(null)
   }
 
   const media = useMemo(
@@ -353,8 +403,48 @@ export default function App() {
           The reader goes `inert` meanwhile: it is still there, but Tab must not
           walk into a screen the user cannot see. */}
       {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={cancelImport} />}
-      <div className="app-shell" inert={importing}>
-        <AppHeader title={chat.title} parsed={chat.parsed} onImport={() => setImporting(true)} />
+      {closing && (
+        <div className="import-overlay">
+          <div className="import-card summary-card">
+            <div className="import-title">Close “{chat.title}”?</div>
+            <div className="import-sub">
+              {chat.storageRef.kind === 'opfs'
+                ? 'This removes the reader’s copy of the export — the unpacked media in browser storage — along with anything you starred. The .zip you imported is untouched; opening this chat again means importing it again.'
+                : 'This removes the reader’s record of the export and anything you starred. The folder on your disk is untouched: opening this chat again means picking that folder again.'}
+            </div>
+            <div className="import-actions">
+              <button type="button" className="btn-primary" onClick={() => void closeChat()}>
+                Close chat
+              </button>
+              {/* Focused rather than the destructive one: a stray Enter must
+                  not be what removes the library. */}
+              <button
+                type="button"
+                className="btn-secondary"
+                autoFocus
+                onClick={() => setClosing(false)}
+              >
+                Cancel
+              </button>
+            </div>
+            {closeError && (
+              <div className="import-error" role="alert">
+                {closeError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="app-shell" inert={importing || closing}>
+        <AppHeader
+          title={chat.title}
+          parsed={chat.parsed}
+          onImport={() => setImporting(true)}
+          onClose={() => {
+            setCloseError(null)
+            setClosing(true)
+          }}
+        />
         <Toolbar media={chat.parsed.media} resultCount={media.length} />
         <div className="app-body">
           <main className="app-main">

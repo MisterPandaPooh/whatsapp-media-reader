@@ -199,12 +199,13 @@ describe('parseChat', () => {
   })
 })
 
-// Reproduces a real iOS export: every line prefixed with U+200E, and the
-// attachment marker prefixed with one too. Before the date patterns stripped
-// the mark, none of these lines matched — so they were all appended to whatever
-// message came first, and the reader showed "[29/07/2026, 14:01:39] Nina
-// Duval: <attached: …>" as raw text inside a single bubble.
-describe('parseChat on a real iOS export', () => {
+// Reproduces the shape of an iOS export: every line prefixed with U+200E, and
+// the attachment marker prefixed with one too. Before the date patterns
+// stripped the mark, none of these lines matched — so they were all appended to
+// whatever message came first, and the reader showed a wall of
+// "[29/07/2026, 14:01:39] Nina Duval: <attached: …>" as raw text inside a
+// single bubble.
+describe('parseChat on an iOS export', () => {
   const LTR = '‎'
   const content = [
     `${LTR}[29/07/2026, 14:01:02] Nina Duval: on est en route`,
@@ -246,12 +247,12 @@ describe('parseChat on a real iOS export', () => {
   })
 })
 
-// Taken from a real export the user reported: a plain line parses, then every
+// Exports are not consistent line to line: a plain line parses, then every
 // following attachment line carries U+200E and (before the fix) failed to
 // match, so all of them were appended to that first message as raw text —
 // exactly the "[29/07/2026, 13:58:11] Nina Duval: <attached: …>" wall the
 // reader was showing inside one bubble.
-describe('parseChat on a mixed real export where only some lines carry a bidi mark', () => {
+describe('parseChat on a mixed export where only some lines carry a bidi mark', () => {
   const LTR = '‎'
   const RLM = '‏'
   const content = [
@@ -270,7 +271,7 @@ describe('parseChat on a mixed real export where only some lines carry a bidi ma
 
   it('attributes both senders', () => {
     const { participants } = parseChat(content, 'mixed')
-    expect(participants.sort()).toEqual(['Nina Duval', 'Amit Bar Lev'])
+    expect(participants.sort()).toEqual(['Amit Bar Lev', 'Nina Duval'])
   })
 
   it('links all three attachments', () => {

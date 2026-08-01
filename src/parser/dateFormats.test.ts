@@ -97,7 +97,7 @@ describe('matchDatePrefix', () => {
 // format character rather than a space, survives both `\s` and `trim()` — so
 // without stripping it the `^`-anchored patterns never match and every line is
 // swallowed as a continuation of the one before it.
-describe('leading bidi marks (real iOS exports)', () => {
+describe('leading bidi marks (iOS exports)', () => {
   const LTR = '‎'
 
   it('parses an iOS bracketed line that begins with a left-to-right mark', () => {
