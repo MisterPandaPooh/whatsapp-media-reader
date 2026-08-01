@@ -283,7 +283,10 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
               {notice}
             </div>
           )}
-          <div className="import-title">Drop your chat export here</div>
+          {/* The page's actual heading, and the thing the screen is asking for —
+              it has to outweigh the instructions below it, which are longer but
+              secondary. Also gives the steps' own <h2> something to sit under. */}
+          <h1 className="import-title import-title--drop">Drop your chat export here</h1>
           <div className="import-sub">
             .zip archive, or a _chat.txt with its media folder. Everything is parsed locally — nothing is uploaded.
           </div>
