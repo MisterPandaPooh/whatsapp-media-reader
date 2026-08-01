@@ -1,4 +1,4 @@
-import { endOfDay, startOfDay } from './dateRange'
+import { addDays, endOfDay, startOfDay } from './dateRange'
 import type { DateSpan } from '../../store/useChatStore'
 
 /**
@@ -74,8 +74,22 @@ function localDate(iso: string): Date {
   return new Date(y, m - 1, d)
 }
 
+/**
+ * Days of slack on either side of a holiday. The photos people actually want
+ * are rarely confined to the festival itself — travelling out, the shopping and
+ * cooking the day before, the drive home after — so the table's exact dates are
+ * a poor edge for a *media* filter. Applied to the holidays only: a season is
+ * already an approximate window, and padding June would just bleed into May.
+ */
+const HOLIDAY_PAD_DAYS = 3
+
 function spanFrom(startIso: string, endIso: string): DateSpan {
-  return { from: startOfDay(localDate(startIso).getTime()), to: endOfDay(localDate(endIso).getTime()) }
+  // addDays is calendar arithmetic rather than ±n×86 400 000, so a DST switch
+  // inside the padding cannot shift the edge by an hour.
+  return {
+    from: startOfDay(addDays(localDate(startIso).getTime(), -HOLIDAY_PAD_DAYS)),
+    to: endOfDay(addDays(localDate(endIso).getTime(), HOLIDAY_PAD_DAYS)),
+  }
 }
 
 /** Summer: 1 June – 31 August. Winter: 1 January – end of February (leap-safe,
