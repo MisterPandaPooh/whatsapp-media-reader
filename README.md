@@ -30,7 +30,46 @@ An export made *without* media still works: the messages and the timeline are al
 - **Click any tile** to open the conversation beside it: the real thread, 50 messages either side, scrolled to the highlighted message that carried the file. The grid stays where it was.
 - **↑ / ↓ in the panel** step through the media you've currently filtered to — so the panel becomes a way to read the chat one artefact at a time.
 - **Star** anything; stars survive a reload. So does the chat itself — reopen the tab and it's still there.
+- **Double-click a photo or video** — in the grid or in the message feed — to open it fullscreen. Arrow keys move between items, Escape or a click outside closes.
 - **"Import chat…"** in the header swaps in a different export. Importing replaces the current chat.
+
+## Feature flags
+
+Optional features are off by default and switched on from the browser console. Set the key, then reload.
+
+```js
+localStorage.setItem('wmr.flag.occasions', 'on')
+```
+
+| Key | What it turns on |
+| --- | --- |
+| `wmr.flag.occasions` | The **Occasion** pickers in the DATE popover — jump the date filter to Pessah, Souccot, Hanouka, Été or Hiver, for one year or all of them. |
+
+`'on'`, `'1'`, `'true'`, `'yes'` and `'enabled'` all count as on; anything else, including an absent key, is off.
+
+### Supplying your own occasions
+
+The occasion list is data, not code. Set `wmr.data.occasions` to replace it — useful for a different calendar, a different language, or years past the built-in table (which runs 2020–2026).
+
+```js
+localStorage.setItem('wmr.data.occasions', JSON.stringify({
+  padDays: 3,
+  occasions: [
+    // A dated occasion: exact days, because the Hebrew calendar cannot be
+    // derived from the Gregorian one. `end` may fall in the next year.
+    { id: 'noel', label: 'Noël', dates: [
+      { year: 2025, start: '2025-12-24', end: '2025-12-25' },
+    ]},
+    // A season: the same MM-DD window every year. A day past the end of the
+    // month is clamped, so '02-29' means "end of February" in any year.
+    { id: 'printemps', label: 'Printemps', season: { from: '03-01', to: '05-31' } },
+  ],
+}))
+```
+
+- `padDays` widens every **dated** occasion by that many days on each side — the travelling, the cooking the day before, the drive home. Seasons are already approximate and are never padded. Defaults to 3.
+- The year dropdown is built from the years your dated occasions mention, unless you give an explicit `years: [...]`.
+- A malformed value is ignored: the built-in list is used and a warning is logged, so a typo cannot break the toolbar.
 
 ## Commands
 

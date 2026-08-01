@@ -12,7 +12,8 @@ import {
   startOfMonth,
   type Preset,
 } from './dateRange'
-import { EVENT_YEARS, QUICK_EVENTS, eventLabel, eventSpans } from './quickEvents'
+import { eventLabel, eventSpans, eventYears, quickEvents } from './quickEvents'
+import { isEnabled } from '../../features/flags'
 import './Toolbar.css'
 
 const TYPES: { kind: MediaKind; label: string }[] = [
@@ -50,6 +51,13 @@ export function Toolbar({ media, resultCount }: Props) {
   // than owning it: Reset clears the filter, and this follows via the effect below.
   const [eventId, setEventId] = useState('')
   const [eventYear, setEventYear] = useState<number | 'all'>('all')
+  // Off unless the flag is set. Read once per mount rather than per render: the
+  // flag and the list it drives are console-edited settings, and re-reading
+  // localStorage on every keystroke in the search box would be pure waste. Both
+  // take effect on the next reload, which is also when the reader would look.
+  const [occasionsOn] = useState(() => isEnabled('occasions'))
+  const [occasions] = useState(() => (isEnabled('occasions') ? quickEvents() : []))
+  const [years] = useState(() => (isEnabled('occasions') ? eventYears() : []))
 
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -365,6 +373,7 @@ export function Toolbar({ media, resultCount }: Props) {
               })}
             </div>
 
+            {occasionsOn && (
             <div className="quick-events">
               <label className="quick-event-field">
                 <span className="quick-event-label">Occasion</span>
@@ -377,7 +386,7 @@ export function Toolbar({ media, resultCount }: Props) {
                   }}
                 >
                   <option value="">—</option>
-                  {QUICK_EVENTS.map((ev) => (
+                  {occasions.map((ev) => (
                     <option key={ev.id} value={ev.id}>
                       {ev.label}
                     </option>
@@ -397,7 +406,7 @@ export function Toolbar({ media, resultCount }: Props) {
                   }}
                 >
                   <option value="all">Toutes</option>
-                  {EVENT_YEARS.map((y) => (
+                  {years.map((y) => (
                     <option key={y} value={y}>
                       {y}
                     </option>
@@ -411,6 +420,7 @@ export function Toolbar({ media, resultCount }: Props) {
                 </span>
               )}
             </div>
+            )}
 
             <div className="calendar">
               <div className="calendar-head">

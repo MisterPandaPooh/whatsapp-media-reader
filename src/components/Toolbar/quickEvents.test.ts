@@ -4,7 +4,7 @@
 process.env.TZ = 'America/New_York'
 
 import { describe, expect, it } from 'vitest'
-import { EVENT_YEARS, QUICK_EVENTS, eventLabel, eventSpans } from './quickEvents'
+import { eventLabel, eventSpans, eventYears, quickEvents } from './quickEvents'
 import { filteredMedia } from '../../store/selectors'
 import { EMPTY_FILTERS } from '../../store/useChatStore'
 import type { MediaItem } from '../../types'
@@ -39,7 +39,7 @@ describe('timezone guard', () => {
 describe('eventSpans', () => {
   it('returns one span per year for a holiday across all years', () => {
     const spans = eventSpans('pessah', 'all')
-    expect(spans).toHaveLength(EVENT_YEARS.length)
+    expect(spans).toHaveLength(eventYears().length)
     // This is the whole reason the filter holds a list: seven separate weeks
     // spread over seven years cannot be written as one range.
     expect(spans.length).toBeGreaterThan(1)
@@ -96,8 +96,8 @@ describe('eventSpans', () => {
   })
 
   it('offers every event in the picker', () => {
-    for (const ev of QUICK_EVENTS) {
-      expect(eventSpans(ev.id, 'all').length).toBe(EVENT_YEARS.length)
+    for (const ev of quickEvents()) {
+      expect(eventSpans(ev.id, 'all').length).toBe(eventYears().length)
     }
   })
 
