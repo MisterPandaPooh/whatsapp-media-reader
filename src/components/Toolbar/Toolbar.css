@@ -221,3 +221,47 @@
   .type-chips .chip-count { display: none; }
   .divider { display: none; }
 }
+
+/* Quick events — jump to a recurring moment (a holiday, a summer) without
+   hunting for its dates on the calendar. A holiday's dates move every year, so
+   "every Pessah" is a set of disjoint spans, not one range. */
+.quick-events {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 9px 10px;
+  border-top: 1px solid var(--border);
+}
+.quick-event-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.quick-event-label {
+  font: 400 9.5px var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.quick-event-select {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: #fff;
+  font: 500 11.5px var(--font-sans);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.quick-event-select:disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+  background: #f6f5f3;
+}
+.quick-event-hint {
+  flex: 1 1 100%;
+  font: 400 10px var(--font-mono);
+  color: var(--text-secondary);
+}

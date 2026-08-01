@@ -25,8 +25,18 @@ export function filteredMedia(media: MediaItem[], filters: Filters): MediaItem[]
     if (filters.types.length && !filters.types.includes(item.kind)) return false
     if (filters.senders.length && !filters.senders.includes(item.sender)) return false
     if (filters.starredOnly && !item.starred) return false
-    if (filters.dateFrom !== null && item.timestampMs < filters.dateFrom) return false
-    if (filters.dateTo !== null && item.timestampMs > filters.dateTo) return false
+    // A quick-event selection replaces the single range rather than stacking
+    // with it: both spell the same "when" filter, and combining them would mean
+    // intersecting "every Pessah" with one calendar month, which is never what
+    // picking an event from the list is asking for.
+    if (filters.dateSpans.length) {
+      if (!filters.dateSpans.some((s) => item.timestampMs >= s.from && item.timestampMs <= s.to)) {
+        return false
+      }
+    } else {
+      if (filters.dateFrom !== null && item.timestampMs < filters.dateFrom) return false
+      if (filters.dateTo !== null && item.timestampMs > filters.dateTo) return false
+    }
     if (q) {
       const haystack = `${item.caption} ${item.filename} ${item.sender}`.toLowerCase()
       if (!haystack.includes(q)) return false

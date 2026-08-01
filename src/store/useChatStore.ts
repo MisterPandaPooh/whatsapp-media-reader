@@ -3,11 +3,25 @@ import { create } from 'zustand'
 import { setStarred } from '../storage/chatRepository'
 import type { MediaKind, StoredChat } from '../types'
 
+/** An inclusive span of epoch-ms. */
+export interface DateSpan {
+  from: number
+  to: number
+}
+
 export interface Filters {
   types: MediaKind[]
   senders: string[]
   dateFrom: number | null
   dateTo: number | null
+  /**
+   * A set of disjoint spans, for a quick-event selection like "every Pessah":
+   * seven separate weeks across seven years cannot be written as one
+   * `dateFrom`/`dateTo` range. Non-empty means it *replaces* that range rather
+   * than narrowing it further — the two are alternative spellings of the same
+   * date filter, and the toolbar clears one whenever it sets the other.
+   */
+  dateSpans: DateSpan[]
   query: string
   starredOnly: boolean
 }
@@ -17,6 +31,7 @@ export const EMPTY_FILTERS: Filters = {
   senders: [],
   dateFrom: null,
   dateTo: null,
+  dateSpans: [],
   query: '',
   starredOnly: false,
 }

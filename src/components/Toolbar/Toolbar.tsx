@@ -12,6 +12,7 @@ import {
   startOfMonth,
   type Preset,
 } from './dateRange'
+import { EVENT_YEARS, QUICK_EVENTS, eventLabel, eventSpans } from './quickEvents'
 import './Toolbar.css'
 
 const TYPES: { kind: MediaKind; label: string }[] = [
@@ -45,6 +46,10 @@ export function Toolbar({ media, resultCount }: Props) {
   const [senderQuery, setSenderQuery] = useState('')
   // First click of a two-click calendar range selection.
   const [pendingStart, setPendingStart] = useState<number | null>(null)
+  // Which quick event the two selects are showing. Mirrors the filter rather
+  // than owning it: Reset clears the filter, and this follows via the effect below.
+  const [eventId, setEventId] = useState('')
+  const [eventYear, setEventYear] = useState<number | 'all'>('all')
 
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -106,6 +111,12 @@ export function Toolbar({ media, resultCount }: Props) {
     setViewMonth(startOfMonth(maxMs))
   }, [maxMs])
 
+  // "Reset filters" clears the store but cannot reach this component's local
+  // selects, which would then still read "Pessah" over an unfiltered grid.
+  useEffect(() => {
+    if (filters.dateSpans.length === 0) setEventId('')
+  }, [filters.dateSpans])
+
   useEffect(() => {
     if (!senderOpen && !dateOpen) return
     function onKeyDown(e: KeyboardEvent) {
@@ -150,18 +161,32 @@ export function Toolbar({ media, resultCount }: Props) {
   const rangeFor = (preset: Preset) => presetRange(preset, maxMs)
 
   function applyPreset(preset: Preset) {
-    setFilters(rangeFor(preset))
+    // Clearing the spans is what makes the two date modes alternatives rather
+    // than a confusing intersection.
+    setFilters({ ...rangeFor(preset), dateSpans: [] })
     setPendingStart(null)
+    setEventId('')
     setDateOpen(false)
+  }
+
+  function applyEvent(id: string, year: number | 'all') {
+    if (!id) {
+      setFilters({ dateSpans: [], dateFrom: null, dateTo: null })
+      return
+    }
+    setFilters({ dateSpans: eventSpans(id, year), dateFrom: null, dateTo: null })
+    setPendingStart(null)
   }
 
   function pickDay(dayStart: number) {
     if (pendingStart === null) {
       setPendingStart(dayStart)
-      setFilters(rangeBetween(dayStart, dayStart))
+      setEventId('')
+      setFilters({ ...rangeBetween(dayStart, dayStart), dateSpans: [] })
       return
     }
-    setFilters(rangeBetween(pendingStart, dayStart))
+    setEventId('')
+    setFilters({ ...rangeBetween(pendingStart, dayStart), dateSpans: [] })
     setPendingStart(null)
   }
 
@@ -185,8 +210,9 @@ export function Toolbar({ media, resultCount }: Props) {
     return r.dateFrom === filters.dateFrom && r.dateTo === filters.dateTo
   })
 
-  const dateLabel =
-    filters.dateFrom === null && filters.dateTo === null
+  const dateLabel = filters.dateSpans.length
+    ? eventLabel(eventId, eventYear)
+    : filters.dateFrom === null && filters.dateTo === null
       ? 'Any time'
       : activePreset && activePreset !== 'All time'
         ? activePreset
@@ -199,6 +225,7 @@ export function Toolbar({ media, resultCount }: Props) {
     filters.senders.length > 0 ||
     filters.dateFrom !== null ||
     filters.dateTo !== null ||
+    filters.dateSpans.length > 0 ||
     filters.starredOnly ||
     filters.query !== ''
 
@@ -338,6 +365,53 @@ export function Toolbar({ media, resultCount }: Props) {
               })}
             </div>
 
+            <div className="quick-events">
+              <label className="quick-event-field">
+                <span className="quick-event-label">Occasion</span>
+                <select
+                  className="quick-event-select"
+                  value={eventId}
+                  onChange={(e) => {
+                    setEventId(e.target.value)
+                    applyEvent(e.target.value, eventYear)
+                  }}
+                >
+                  <option value="">—</option>
+                  {QUICK_EVENTS.map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="quick-event-field">
+                <span className="quick-event-label">Année</span>
+                <select
+                  className="quick-event-select"
+                  value={String(eventYear)}
+                  disabled={!eventId}
+                  onChange={(e) => {
+                    const y = e.target.value === 'all' ? 'all' : Number(e.target.value)
+                    setEventYear(y)
+                    if (eventId) applyEvent(eventId, y)
+                  }}
+                >
+                  <option value="all">Toutes</option>
+                  {EVENT_YEARS.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {filters.dateSpans.length > 0 && (
+                <span className="quick-event-hint">
+                  {filters.dateSpans.length} période{filters.dateSpans.length > 1 ? 's' : ''} · {resultCount} résultat
+                  {resultCount === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
+
             <div className="calendar">
               <div className="calendar-head">
                 <button
@@ -424,7 +498,9 @@ export function Toolbar({ media, resultCount }: Props) {
         onChange={(e) => setFilters({ query: e.target.value })}
       />
 
-      <div className="result-count">{resultCount} results</div>
+      <div className="result-count">
+        {resultCount.toLocaleString()} {resultCount === 1 ? 'result' : 'results'}
+      </div>
 
       {anyFilter && (
         <button type="button" className="reset-btn" onClick={resetFilters}>
