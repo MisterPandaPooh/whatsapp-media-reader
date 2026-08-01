@@ -1,6 +1,7 @@
 // src/components/Toolbar/Toolbar.tsx
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChatStore } from '../../store/useChatStore'
+import { facetMedia } from '../../store/selectors'
 import { Popover } from './Popover'
 import type { MediaItem, MediaKind } from '../../types'
 import {
@@ -59,19 +60,32 @@ export function Toolbar({ media, resultCount }: Props) {
   const [occasions] = useState(() => (isEnabled('occasions') ? quickEvents() : []))
   const [years] = useState(() => (isEnabled('occasions') ? eventYears() : []))
 
+  // Every count below is measured against the media passing all the *other*
+  // filters, so each number answers the question its own control asks: "how
+  // many would I get if I chose this?" Counting the whole chat instead left
+  // "Photos 6,679" sitting next to a result count of 12.
   const typeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
-    for (const m of media) counts[m.kind] = (counts[m.kind] ?? 0) + 1
+    for (const m of facetMedia(media, filters, 'type')) counts[m.kind] = (counts[m.kind] ?? 0) + 1
     return counts
-  }, [media])
+  }, [media, filters])
 
-  const starredCount = useMemo(() => media.reduce((n, m) => n + (m.starred ? 1 : 0), 0), [media])
+  const starredCount = useMemo(
+    () => facetMedia(media, filters, 'starred').reduce((n, m) => n + (m.starred ? 1 : 0), 0),
+    [media, filters],
+  )
 
   const senderCounts = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const m of media) counts.set(m.sender, (counts.get(m.sender) ?? 0) + 1)
+    // Selected senders are seeded at zero so one whose count has fallen to
+    // nothing — narrow the date range far enough and it will — still has a row
+    // to click, rather than becoming a filter that cannot be switched off.
+    for (const name of filters.senders) counts.set(name, 0)
+    for (const m of facetMedia(media, filters, 'sender')) {
+      counts.set(m.sender, (counts.get(m.sender) ?? 0) + 1)
+    }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [media])
+  }, [media, filters])
 
   const maxSenderCount = senderCounts.length > 0 ? senderCounts[0][1] : 0
 
@@ -98,14 +112,18 @@ export function Toolbar({ media, resultCount }: Props) {
     return { minMs: min, maxMs: max }
   }, [media])
 
+  // The calendar's per-day dots follow the other filters too — with a sender
+  // picked, the dots show when *they* posted. The month range above does not:
+  // it is the shape of the export, and a calendar that lost months as you
+  // filtered would move under the cursor mid-selection.
   const dayCounts = useMemo(() => {
     const counts = new Map<number, number>()
-    for (const m of media) {
+    for (const m of facetMedia(media, filters, 'date')) {
       const key = startOfDay(m.timestampMs)
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     return counts
-  }, [media])
+  }, [media, filters])
 
   const maxDayCount = useMemo(() => {
     let max = 0

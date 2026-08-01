@@ -19,30 +19,71 @@ import type { Filters } from './useChatStore'
  * reverses it. Being explicit rather than leaning on `Array#sort` stability
  * keeps the grid from reshuffling between renders.
  */
+function matches(item: MediaItem, filters: Filters, q: string): boolean {
+  if (filters.types.length && !filters.types.includes(item.kind)) return false
+  if (filters.senders.length && !filters.senders.includes(item.sender)) return false
+  if (filters.starredOnly && !item.starred) return false
+  // A quick-event selection replaces the single range rather than stacking
+  // with it: both spell the same "when" filter, and combining them would mean
+  // intersecting "every Pessah" with one calendar month, which is never what
+  // picking an event from the list is asking for.
+  if (filters.dateSpans.length) {
+    if (!filters.dateSpans.some((s) => item.timestampMs >= s.from && item.timestampMs <= s.to)) {
+      return false
+    }
+  } else {
+    if (filters.dateFrom !== null && item.timestampMs < filters.dateFrom) return false
+    if (filters.dateTo !== null && item.timestampMs > filters.dateTo) return false
+  }
+  if (q) {
+    const haystack = `${item.caption} ${item.filename} ${item.sender}`.toLowerCase()
+    if (!haystack.includes(q)) return false
+  }
+  return true
+}
+
+/** The filter dimensions the toolbar shows a count for. */
+export type FacetDimension = 'type' | 'sender' | 'date' | 'starred'
+
+/**
+ * Everything that passes the filters **except one dimension** — what the counts
+ * next to that dimension's own controls should be measured against.
+ *
+ * Counting against the whole chat instead makes the numbers lie the moment any
+ * other filter is on: "Photos 6,679" beside a result count of 12. Counting
+ * against the fully filtered set is just as wrong in the other direction — pick
+ * Photos and every other type reads 0, so the chips stop telling you what
+ * switching to Videos would get you and you have to clear the filter to find
+ * out. Excluding only the dimension being counted is what makes each number
+ * answer the question its control asks: "how many if I chose this?"
+ *
+ * Deliberately unsorted, unlike `filteredMedia`: this feeds tallies, and
+ * ordering thousands of items four times per render for numbers nobody sees in
+ * sequence is pure waste.
+ */
+export function facetMedia(
+  media: MediaItem[],
+  filters: Filters,
+  except: FacetDimension,
+): MediaItem[] {
+  const relaxed: Filters = {
+    ...filters,
+    types: except === 'type' ? [] : filters.types,
+    senders: except === 'sender' ? [] : filters.senders,
+    starredOnly: except === 'starred' ? false : filters.starredOnly,
+    // Both spellings of the date filter have to go together — clearing one and
+    // leaving the other still constrains the dimension we are trying to relax.
+    dateFrom: except === 'date' ? null : filters.dateFrom,
+    dateTo: except === 'date' ? null : filters.dateTo,
+    dateSpans: except === 'date' ? [] : filters.dateSpans,
+  }
+  const q = relaxed.query.trim().toLowerCase()
+  return media.filter((item) => matches(item, relaxed, q))
+}
+
 export function filteredMedia(media: MediaItem[], filters: Filters): MediaItem[] {
   const q = filters.query.trim().toLowerCase()
-  const kept = media.filter((item) => {
-    if (filters.types.length && !filters.types.includes(item.kind)) return false
-    if (filters.senders.length && !filters.senders.includes(item.sender)) return false
-    if (filters.starredOnly && !item.starred) return false
-    // A quick-event selection replaces the single range rather than stacking
-    // with it: both spell the same "when" filter, and combining them would mean
-    // intersecting "every Pessah" with one calendar month, which is never what
-    // picking an event from the list is asking for.
-    if (filters.dateSpans.length) {
-      if (!filters.dateSpans.some((s) => item.timestampMs >= s.from && item.timestampMs <= s.to)) {
-        return false
-      }
-    } else {
-      if (filters.dateFrom !== null && item.timestampMs < filters.dateFrom) return false
-      if (filters.dateTo !== null && item.timestampMs > filters.dateTo) return false
-    }
-    if (q) {
-      const haystack = `${item.caption} ${item.filename} ${item.sender}`.toLowerCase()
-      if (!haystack.includes(q)) return false
-    }
-    return true
-  })
+  const kept = media.filter((item) => matches(item, filters, q))
 
   return kept
     .map((item, transcriptIndex) => ({ item, transcriptIndex }))

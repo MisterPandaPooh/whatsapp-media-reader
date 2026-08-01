@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extendThreadRange, filteredMedia, threadRange, threadWindow } from './selectors'
+import { extendThreadRange, facetMedia, filteredMedia, threadRange, threadWindow } from './selectors'
 import { EMPTY_FILTERS, type Filters } from './useChatStore'
 import type { MediaItem, Message } from '../types'
 
@@ -200,5 +200,62 @@ describe('extendThreadRange', () => {
       start: 190,
       end: 301,
     })
+  })
+})
+
+describe('facetMedia', () => {
+  const day = (n: number) => Date.UTC(2026, 4, n)
+  const at = (
+    id: string,
+    kind: MediaItem['kind'],
+    sender: string,
+    dayN: number,
+    starred = false,
+  ): MediaItem => ({
+    id, kind, filename: `${id}.bin`, size: 1, caption: '', sender,
+    timestampMs: day(dayN), anchorMessageId: id, starred, missing: false,
+  })
+
+  const set: MediaItem[] = [
+    at('a', 'photo', 'Nina', 1, true),
+    at('b', 'photo', 'Amit', 1),
+    at('c', 'video', 'Nina', 1),
+    at('d', 'video', 'Amit', 9),
+    at('e', 'doc', 'Nina', 9),
+  ]
+  const ids = (list: MediaItem[]) => list.map((m) => m.id).sort()
+
+  it('ignores the type filter when counting types, so the other chips stay useful', () => {
+    const f: Filters = { ...EMPTY_FILTERS, types: ['photo'] }
+    // The grid shows only photos...
+    expect(ids(filteredMedia(set, f))).toEqual(['a', 'b'])
+    // ...but the chips still say what picking Videos instead would give.
+    expect(ids(facetMedia(set, f, 'type'))).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('still applies every other filter while ignoring its own', () => {
+    const f: Filters = { ...EMPTY_FILTERS, types: ['photo'], senders: ['Nina'] }
+    expect(ids(facetMedia(set, f, 'type'))).toEqual(['a', 'c', 'e'])
+    expect(ids(facetMedia(set, f, 'sender'))).toEqual(['a', 'b'])
+  })
+
+  it('clears both spellings of the date filter together', () => {
+    const spans: Filters = { ...EMPTY_FILTERS, dateSpans: [{ from: day(9), to: day(9) + 86_399_999 }] }
+    expect(ids(filteredMedia(set, spans))).toEqual(['d', 'e'])
+    expect(ids(facetMedia(set, spans, 'date'))).toEqual(['a', 'b', 'c', 'd', 'e'])
+
+    const range: Filters = { ...EMPTY_FILTERS, dateFrom: day(9), dateTo: day(9) + 86_399_999 }
+    expect(ids(facetMedia(set, range, 'date'))).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('counts what starring would keep, not what it currently keeps', () => {
+    const f: Filters = { ...EMPTY_FILTERS, starredOnly: true }
+    expect(ids(filteredMedia(set, f))).toEqual(['a'])
+    expect(ids(facetMedia(set, f, 'starred'))).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+
+  it('keeps honouring the search box, which has no facet of its own', () => {
+    const f: Filters = { ...EMPTY_FILTERS, query: 'Nina', types: ['photo'] }
+    expect(ids(facetMedia(set, f, 'type'))).toEqual(['a', 'c', 'e'])
   })
 })
