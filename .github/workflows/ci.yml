@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Only the newest run per branch matters; cancel the ones it superseded.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Not `tsc --noEmit`: the root tsconfig is a solution file with no `files`,
+      # so that form silently checks nothing and exits 0.
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npx vite build

@@ -6,10 +6,12 @@
 
 You browse what was sent, and use any file as a way back into its moment in the thread.
 
+[![CI](https://github.com/MisterPandaPooh/whatsapp-media-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/MisterPandaPooh/whatsapp-media-reader/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Chromium required](https://img.shields.io/badge/browser-Chromium-4285F4)
 ![No backend](https://img.shields.io/badge/backend-none-success)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
+
+**[Open the latest release →](https://misterpandapooh.github.io/whatsapp-media-reader/)**
 
 </div>
 
@@ -20,6 +22,8 @@ You browse what was sent, and use any file as a way back into its moment in the 
 There is no backend, no upload, no analytics, no network call of any kind. The app reads the export off your disk with the File System Access API, keeps extracted media in OPFS and the parsed chat in IndexedDB, and that is the whole data path. Close the tab and it is still yours; clear site data and it is gone.
 
 ## Running it
+
+The [hosted build](https://misterpandapooh.github.io/whatsapp-media-reader/) is the latest release and needs no install — it is the same static app, and your export still never leaves your machine. To run it locally:
 
 ```bash
 npm install
