@@ -12,6 +12,13 @@ import { filteredMedia } from './store/selectors'
 import { deleteChat, forgetChat, loadLastChat } from './storage/chatRepository'
 import { needsReparse, reparseChat } from './storage/reparseChat'
 import {
+  formatBytes,
+  requestPersistence,
+  storageEstimate,
+  sweepOrphanedStorage,
+  type StorageUsage,
+} from './storage/originStorage'
+import {
   discardStorage,
   ensurePermission,
   hasPermission,
@@ -83,6 +90,12 @@ export default function App() {
   // be got back without importing the export again.
   const [closing, setClosing] = useState(false)
   const [closeError, setCloseError] = useState<string | null>(null)
+  // What this origin costs, for the header's storage button and its card.
+  // Null until the first reading lands, and on any browser that will not say.
+  const [usage, setUsage] = useState<StorageUsage | null>(null)
+  const [storageOpen, setStorageOpen] = useState(false)
+  const [sweeping, setSweeping] = useState(false)
+  const [sweptMessage, setSweptMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!SUPPORTED) {
@@ -165,19 +178,61 @@ export default function App() {
     }
   }, [upgrading, setChat])
 
+  /**
+   * Reclaim what nothing points at, ask not to be evicted, and read the meter.
+   *
+   * Deliberately after the restore effect rather than inside it: the sweep walks
+   * OPFS and the restore is what puts the first screen up, so making the page
+   * wait on it would trade a visible delay for storage nobody was asking about
+   * yet. Runs once per load, and never blocks anything.
+   */
+  useEffect(() => {
+    if (!SUPPORTED) return
+    let cancelled = false
+    void (async () => {
+      await sweepOrphanedStorage()
+      // Only worth asking once there is something to protect: a fresh visitor
+      // with an empty origin has nothing that eviction could take.
+      if (useChatStore.getState().chat) void requestPersistence()
+      const reading = await storageEstimate()
+      if (!cancelled) setUsage(reading)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [chat])
+
+  async function freeUpSpace() {
+    if (sweeping) return
+    setSweeping(true)
+    setSweptMessage(null)
+    const { removed, bytesFreed } = await sweepOrphanedStorage()
+    const reading = await storageEstimate()
+    setUsage(reading)
+    setSweeping(false)
+    setSweptMessage(
+      removed.length === 0
+        ? 'Nothing to reclaim — every byte here belongs to the chat you have open.'
+        : `Removed ${removed.length} abandoned import${removed.length === 1 ? '' : 's'}${
+            bytesFreed > 0 ? `, reclaiming ${formatBytes(bytesFreed)}` : ''
+          }.`,
+    )
+  }
+
   // Escape backs out of the close confirmation, the conventional gesture for a
   // modal. preventDefault marks the key as consumed so the panel's own handler
   // — which honours defaultPrevented — leaves the selection alone.
   useEffect(() => {
-    if (!closing) return
+    if (!closing && !storageOpen) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       e.preventDefault()
       setClosing(false)
+      setStorageOpen(false)
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [closing])
+  }, [closing, storageOpen])
 
   // Escape pressed anywhere outside the panel (a grid tile, the page body)
   // closes it. The panel's own handler stops propagation before the event
@@ -196,7 +251,7 @@ export default function App() {
     // dismiss the gallery *and* the panel behind it, so a double-click into
     // fullscreen and a press of Escape would leave the reader with nothing
     // selected at all.
-    if (!activeMediaId || importing || galleryOpen || closing) return
+    if (!activeMediaId || importing || galleryOpen || closing || storageOpen) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -206,7 +261,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeMediaId, importing, galleryOpen, closing, closePanel])
+  }, [activeMediaId, importing, galleryOpen, closing, storageOpen, closePanel])
 
   // Stable identity: ImportScreen subscribes a window listener keyed on this
   // prop, and a fresh arrow every render would tear it down and rebuild it on
@@ -409,6 +464,45 @@ export default function App() {
           The reader goes `inert` meanwhile: it is still there, but Tab must not
           walk into a screen the user cannot see. */}
       {importing && <ImportScreen onOpen={adoptImportedChat} onCancel={cancelImport} />}
+      {storageOpen && (
+        <div className="import-overlay">
+          <div className="import-card summary-card">
+            <div className="import-title">Browser storage</div>
+            <div className="import-sub">
+              {usage
+                ? `${formatBytes(usage.usage)} used${usage.quota > 0 ? ` of ${formatBytes(usage.quota)} available` : ''}.`
+                : 'This browser will not report how much it is using.'}{' '}
+              {chat.storageRef.kind === 'opfs'
+                ? 'A .zip import is unpacked into browser storage, so this chat is a second copy of the export. Importing the unzipped folder instead uses none — the reader just reads your own files where they are.'
+                : 'This chat is read straight from the folder on your disk and uses none of it.'}
+              {usage && !usage.persisted
+                ? ' The browser has not marked this data as persistent, so it may still be cleared if the disk fills up.'
+                : ''}
+            </div>
+            <div className="import-sub">
+              Freeing up space only removes leftovers from imports that were never opened — a
+              tab closed while a .zip was still unpacking, or an import abandoned at the summary
+              screen. The chat you have open is kept, and the .zip or folder it came from is
+              never touched: the reader only ever reads your files, it does not write to or
+              delete them.
+            </div>
+            <div className="import-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => void freeUpSpace()}
+                disabled={sweeping}
+              >
+                {sweeping ? 'Checking…' : 'Free up space'}
+              </button>
+              <button type="button" className="btn-primary" onClick={() => setStorageOpen(false)}>
+                Done
+              </button>
+            </div>
+            {sweptMessage && <div className="import-sub import-sub--result">{sweptMessage}</div>}
+          </div>
+        </div>
+      )}
       {closing && (
         <div className="import-overlay">
           <div className="import-card summary-card">
@@ -441,10 +535,15 @@ export default function App() {
           </div>
         </div>
       )}
-      <div className="app-shell" inert={importing || closing}>
+      <div className="app-shell" inert={importing || closing || storageOpen}>
         <AppHeader
           title={chat.title}
           parsed={chat.parsed}
+          storageLabel={usage ? formatBytes(usage.usage) : undefined}
+          onOpenStorage={() => {
+            setSweptMessage(null)
+            setStorageOpen(true)
+          }}
           onImport={() => setImporting(true)}
           onClose={() => {
             setCloseError(null)

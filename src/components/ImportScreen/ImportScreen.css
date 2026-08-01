@@ -168,3 +168,12 @@
   font: 400 11.5px/1 var(--font-sans); color: var(--text-primary);
 }
 .summary-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+
+/* Outcome of an action taken inside a card ("reclaimed 2.1 GB"), set apart from
+   the explanatory copy above it rather than reading as more of it. */
+.import-sub--result {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+  color: var(--text-primary);
+}

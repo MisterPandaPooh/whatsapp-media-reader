@@ -10,9 +10,13 @@ interface Props {
   onImport: () => void
   /** Drops this chat and goes back to the import screen. */
   onClose: () => void
+  /** What this app is using in the browser. Absent on a browser that will not
+   *  say, in which case the button is not shown rather than showing nothing. */
+  storageLabel?: string
+  onOpenStorage: () => void
 }
 
-export function AppHeader({ title, parsed, onImport, onClose }: Props) {
+export function AppHeader({ title, parsed, onImport, onClose, storageLabel, onOpenStorage }: Props) {
   // Scans every message for the date range; the chat can be six figures long
   // and this re-renders on every keystroke in the toolbar's search box.
   const meta = useMemo(() => chatMetaLine(parsed), [parsed])
@@ -28,6 +32,16 @@ export function AppHeader({ title, parsed, onImport, onClose }: Props) {
         </h1>
         <div className="chat-meta">{meta}</div>
       </div>
+      {storageLabel && (
+        <button
+          type="button"
+          className="header-btn header-btn--quiet header-btn--meter"
+          onClick={onOpenStorage}
+          title="Storage this app is using in your browser"
+        >
+          {storageLabel}
+        </button>
+      )}
       <button type="button" className="header-btn" onClick={onImport}>
         Import chat…
       </button>

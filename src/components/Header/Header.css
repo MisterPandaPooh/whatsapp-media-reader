@@ -75,3 +75,9 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* The storage meter is a reading, not a label — monospace so the number does
+   not jitter sideways as it changes. */
+.header-btn--meter {
+  font: 400 10.5px var(--font-mono);
+}
