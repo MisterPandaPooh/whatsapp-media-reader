@@ -60,6 +60,44 @@ export function stripMediaMarker(text: string): string {
   return `${before}${needsSpace ? ' ' : ''}${after}`.replace(EDGE_TRIM_RE, '')
 }
 
+/**
+ * The other way an export refers to an attachment. When WhatsApp cannot include
+ * a file — the media was exported "without media", or it had already been
+ * cleared off the device — it writes `‎image omitted` in place of the
+ * `<attached: …>` marker. There is no filename, so nothing can ever be shown;
+ * what matters is that the message is not a message whose text is the words
+ * "image omitted".
+ *
+ * The English wording is what WhatsApp writes in an English-locale export
+ * regardless of the conversation's own language, which is what a real export
+ * from a French/Hebrew chat confirms.
+ */
+const OMITTED_KIND: Record<string, MediaKind> = {
+  image: 'photo',
+  sticker: 'photo',
+  GIF: 'photo',
+  video: 'video',
+  audio: 'voice',
+  document: 'doc',
+}
+const OMITTED_RE = new RegExp(`[${BIDI}]?\\b(image|sticker|GIF|video|audio|document) omitted`)
+
+/** The kind of attachment a message says was left out of the export, if any. */
+export function detectOmittedKind(text: string): MediaKind | null {
+  const m = text.match(OMITTED_RE)
+  return m ? OMITTED_KIND[m[1]] : null
+}
+
+/** Removes the `image omitted` placeholder, leaving any caption around it. */
+export function stripOmittedMarker(text: string): string {
+  const m = text.match(OMITTED_RE)
+  if (!m || m.index === undefined) return text
+  const before = text.slice(0, m.index).replace(PAD_BEFORE_RE, '')
+  const after = text.slice(m.index + m[0].length).replace(PAD_AFTER_RE, '')
+  const needsSpace = before !== '' && after !== '' && !/\n$/.test(before) && !/^\r?\n/.test(after)
+  return `${before}${needsSpace ? ' ' : ''}${after}`.replace(EDGE_TRIM_RE, '')
+}
+
 const EXT_KIND: Record<string, MediaKind> = {
   jpg: 'photo', jpeg: 'photo', png: 'photo', gif: 'photo', webp: 'photo', heic: 'photo',
   mp4: 'video', mov: 'video', avi: 'video', '3gp': 'video', webm: 'video',

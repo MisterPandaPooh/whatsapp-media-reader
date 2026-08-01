@@ -31,6 +31,15 @@ const DAY_FMT = new Intl.DateTimeFormat(undefined, {
 })
 const TIME_FMT = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
 
+/** For an attachment the export left out — there is no filename to show. */
+const OMITTED_LABEL: Record<MediaItem['kind'], string> = {
+  photo: 'Photo',
+  video: 'Video',
+  voice: 'Voice note',
+  doc: 'Document',
+  link: 'Link',
+}
+
 /** Stable per-sender colour so bubbles are visually attributable at a glance. */
 const SENDER_COLORS = [
   '#1f7a5a',
@@ -293,6 +302,12 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
                         storageRef={storageRef}
                         onOpen={onOpenMedia}
                       />
+                    )}
+                    {m.omittedMedia && (
+                      <div className="bubble-attach bubble-attach--missing">
+                        <span className="bubble-attach-kind">{OMITTED_LABEL[m.omittedMedia]}</span>
+                        <span className="bubble-attach-name">not included in this export</span>
+                      </div>
                     )}
                     {/* Empty only for a message that was nothing but an
                         attachment marker — the chip above stands in for it. */}

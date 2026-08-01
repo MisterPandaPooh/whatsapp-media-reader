@@ -7,6 +7,13 @@ export interface Message {
   timestampMs: number
   text: string
   mediaId?: string
+  /**
+   * Set when the message carried an attachment that the export left out —
+   * `image omitted` rather than `<attached: …>`. There is no file and no
+   * filename, so there is no MediaItem either; the thread says an attachment
+   * was here and that it is not in this export.
+   */
+  omittedMedia?: MediaKind
   isSystemMessage: boolean
 }
 

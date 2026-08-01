@@ -297,3 +297,78 @@ describe('parseChat on a mixed real export where only some lines carry a bidi ma
     expect(messages.filter((m) => /\[\d{2}\/\d{2}\/\d{4},/.test(m.text))).toHaveLength(0)
   })
 })
+
+describe('attachments the export left out', () => {
+  const LTR = '‎'
+
+  it('reads "image omitted" as a photo that is not in the export', () => {
+    const { messages, media } = parseChat(
+      `[03/07/2020, 16:23:03] Nina Duval: ${LTR}image omitted`,
+      'omitted',
+    )
+    expect(messages[0].omittedMedia).toBe('photo')
+    // No filename means no file: a grid tile that can never be opened would
+    // bury the media that is actually here.
+    expect(media).toHaveLength(0)
+    expect(messages[0].text).toBe('')
+  })
+
+  it('maps each placeholder wording to its kind', () => {
+    const content = [
+      `[03/07/2020, 16:23:03] A: ${LTR}video omitted`,
+      `[03/07/2020, 16:23:04] A: ${LTR}audio omitted`,
+      `[03/07/2020, 16:23:05] A: ${LTR}document omitted`,
+      `[03/07/2020, 16:23:06] A: ${LTR}sticker omitted`,
+      `[03/07/2020, 16:23:07] A: ${LTR}GIF omitted`,
+    ].join('\n')
+    expect(parseChat(content, 'kinds').messages.map((m) => m.omittedMedia)).toEqual([
+      'video',
+      'voice',
+      'doc',
+      'photo',
+      'photo',
+    ])
+  })
+
+  it('keeps the caption that sits beside the placeholder', () => {
+    const { messages } = parseChat(
+      `[03/07/2020, 17:23:28] Nina: Salut tout le monde ${LTR}image omitted`,
+      'caption',
+    )
+    expect(messages[0].text).toBe('Salut tout le monde')
+    expect(messages[0].omittedMedia).toBe('photo')
+  })
+
+  it('leaves a message that merely mentions the word alone', () => {
+    const { messages } = parseChat('[03/07/2020, 17:23:28] Nina: the tax was omitted', 'word')
+    expect(messages[0].omittedMedia).toBeUndefined()
+    expect(messages[0].text).toBe('the tax was omitted')
+  })
+})
+
+describe('bidi wrappers WhatsApp puts around generated fragments', () => {
+  it('keeps a phone-number sender out of the participant list twice over', () => {
+    const { participants, messages } = parseChat(
+      ['[19/10/2021, 10:28:17] ‪+1 (212) 555-0142‬: salut', '[19/10/2021, 10:50:27] +1 (212) 555-0142: ca va'].join('\n'),
+      'phone',
+    )
+    expect(participants).toEqual(['+1 (212) 555-0142'])
+    expect(messages[0].sender).toBe(messages[1].sender)
+  })
+
+  it('unwraps an @mention so it reads and searches as plain text', () => {
+    const { messages } = parseChat(
+      '[12/07/2020, 21:47:32] Amit: @⁨Nina Duval⁩ tu viens ce soir',
+      'mention',
+    )
+    expect(messages[0].text).toBe('@Nina Duval tu viens ce soir')
+  })
+
+  it('unwraps a mention in an attachment caption too', () => {
+    const { media } = parseChat(
+      `[19/07/2020, 21:16:48] Nina: Encore une @⁨Amit Bar Lev⁩ ‎<attached: IMG-1.jpg>`,
+      'mention-caption',
+    )
+    expect(media[0].caption).toBe('Encore une @Amit Bar Lev')
+  })
+})

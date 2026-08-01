@@ -19,5 +19,8 @@
  * 2 — leading bidi marks (U+200E) stripped before matching the date prefix.
  *     Before this, every iOS attachment line was folded into the preceding
  *     message: message boundaries, media count and media *sender* were all wrong.
+ * 3 — `image omitted` placeholders recognized as attachments left out of the
+ *     export rather than rendered as their literal words; bidi wrappers removed
+ *     from sender names (a phone-number contact) and from @mentions.
  */
-export const PARSER_VERSION = 2
+export const PARSER_VERSION = 3

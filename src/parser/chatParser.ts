@@ -1,7 +1,15 @@
 // src/parser/chatParser.ts
 import type { Message, MediaItem, ParsedChat } from '../types'
 import { matchDatePrefix } from './dateFormats'
-import { extractMediaFilename, detectKind, isSystemMessage, stripMediaMarker } from './mediaIndicators'
+import {
+  extractMediaFilename,
+  detectKind,
+  detectOmittedKind,
+  isSystemMessage,
+  stripMediaMarker,
+  stripOmittedMarker,
+} from './mediaIndicators'
+import { stripBidiFormatting, stripMentionIsolates } from './bidi'
 import { makeIdGenerator } from './id'
 
 const URL_RE = /https?:\/\/\S+/i
@@ -20,7 +28,7 @@ function splitSenderContent(rest: string): { sender: string; content: string } {
   // A sender name never spans lines, so a candidate containing one is message
   // text that merely happens to contain a colon.
   if (candidate !== '' && candidate.length <= MAX_SENDER_LENGTH && !/[\r\n]/.test(candidate)) {
-    return { sender: candidate.trim(), content: rest.slice(colonIndex + 1).trim() }
+    return { sender: stripBidiFormatting(candidate), content: rest.slice(colonIndex + 1).trim() }
   }
   return { sender: '', content: rest.trim() }
 }
@@ -58,7 +66,7 @@ export function parseChat(content: string, chatId: string): ParsedChat {
       // conversation thread renders a literal `<attached: IMG-0002.png>`. When
       // the marker *was* the whole message this leaves the text empty, and
       // MessageThread renders the attachment chip instead of an empty bubble.
-      const caption = stripMediaMarker(pending.text)
+      const caption = stripMentionIsolates(stripMediaMarker(pending.text))
       msg.text = caption
       const item: MediaItem = {
         id: `${id}-media`,
@@ -74,13 +82,20 @@ export function parseChat(content: string, chatId: string): ParsedChat {
       }
       media.push(item)
       msg.mediaId = item.id
+    } else if (!pending.system && detectOmittedKind(pending.text)) {
+      // An attachment the export left out. No filename means no file, no
+      // thumbnail and nothing to download, so this deliberately produces no
+      // MediaItem — a grid of tiles that can never be opened would bury the
+      // media that *is* here. The thread still says the attachment was there.
+      msg.omittedMedia = detectOmittedKind(pending.text)!
+      msg.text = stripMentionIsolates(stripOmittedMarker(pending.text))
     } else if (url && !pending.system) {
       const item: MediaItem = {
         id: `${id}-media`,
         kind: 'link',
         filename: url,
         size: 0,
-        caption: pending.text,
+        caption: stripMentionIsolates(pending.text),
         sender: pending.sender,
         timestampMs: pending.timestampMs,
         anchorMessageId: id,
@@ -89,6 +104,9 @@ export function parseChat(content: string, chatId: string): ParsedChat {
       }
       media.push(item)
       msg.mediaId = item.id
+      msg.text = item.caption
+    } else {
+      msg.text = stripMentionIsolates(msg.text)
     }
 
     messages.push(msg)
