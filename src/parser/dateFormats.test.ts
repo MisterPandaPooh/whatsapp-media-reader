@@ -92,3 +92,37 @@ describe('matchDatePrefix', () => {
     expect(matchDatePrefix('just a continuation line')).toBeNull()
   })
 })
+
+// A real iOS export starts every line with U+200E. It is invisible and, being a
+// format character rather than a space, survives both `\s` and `trim()` — so
+// without stripping it the `^`-anchored patterns never match and every line is
+// swallowed as a continuation of the one before it.
+describe('leading bidi marks (real iOS exports)', () => {
+  const LTR = '‎'
+
+  it('parses an iOS bracketed line that begins with a left-to-right mark', () => {
+    const r = matchDatePrefix(`${LTR}[29/07/2026, 14:01:39] Nina Duval: hello`)
+    expect(r).not.toBeNull()
+    expect(r!.rest).toBe('Nina Duval: hello')
+    const d = new Date(r!.timestampMs)
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(6) // July
+    expect(d.getDate()).toBe(29)
+    expect(d.getSeconds()).toBe(39)
+  })
+
+  it('parses a non-bracketed line that begins with a mark', () => {
+    const r = matchDatePrefix(`${LTR}09/03/2025, 20:14 - Ana: hi`)
+    expect(r).not.toBeNull()
+    expect(r!.rest).toBe('Ana: hi')
+  })
+
+  it('does not carry the mark into the remainder', () => {
+    const r = matchDatePrefix(`${LTR}${LTR}[29/07/2026, 14:01:39] Nina: x`)
+    expect(r!.rest.startsWith(LTR)).toBe(false)
+  })
+
+  it('still returns null for a genuine continuation line', () => {
+    expect(matchDatePrefix(`${LTR}just a wrapped line of text`)).toBeNull()
+  })
+})

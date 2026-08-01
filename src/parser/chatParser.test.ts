@@ -198,3 +198,50 @@ describe('parseChat', () => {
     expect(messages[0].text).toBe('First paragraph\n\nSecond paragraph')
   })
 })
+
+// Reproduces a real iOS export: every line prefixed with U+200E, and the
+// attachment marker prefixed with one too. Before the date patterns stripped
+// the mark, none of these lines matched — so they were all appended to whatever
+// message came first, and the reader showed "[29/07/2026, 14:01:39] Nina
+// Duval: <attached: …>" as raw text inside a single bubble.
+describe('parseChat on a real iOS export', () => {
+  const LTR = '‎'
+  const content = [
+    `${LTR}[29/07/2026, 14:01:02] Nina Duval: on est en route`,
+    `${LTR}[29/07/2026, 14:01:21] Nina Duval: ${LTR}<attached: 00000104-PHOTO-2026-07-29-14-01-21.jpg>`,
+    `${LTR}[29/07/2026, 14:01:39] Nina Duval: ${LTR}<attached: 00000105-PHOTO-2026-07-29-14-01-39.jpg>`,
+    `${LTR}[29/07/2026, 14:01:57] Nina Duval: ${LTR}<attached: 00000106-PHOTO-2026-07-29-14-01-57.jpg>`,
+  ].join('\n')
+
+  it('parses every line as its own message', () => {
+    const { messages } = parseChat(content, 'ios-chat')
+    expect(messages).toHaveLength(4)
+  })
+
+  it('attributes the sender instead of swallowing the prefix as text', () => {
+    const { messages, participants } = parseChat(content, 'ios-chat')
+    expect(participants).toEqual(['Nina Duval'])
+    for (const m of messages) {
+      expect(m.sender).toBe('Nina Duval')
+      expect(m.text).not.toContain('[29/07/2026')
+      expect(m.text).not.toContain('Nina Duval:')
+    }
+  })
+
+  it('links each attachment and leaves no marker in the text', () => {
+    const { messages, media } = parseChat(content, 'ios-chat')
+    expect(media).toHaveLength(3)
+    expect(media.map((m) => m.filename)).toEqual([
+      '00000104-PHOTO-2026-07-29-14-01-21.jpg',
+      '00000105-PHOTO-2026-07-29-14-01-39.jpg',
+      '00000106-PHOTO-2026-07-29-14-01-57.jpg',
+    ])
+    for (const m of messages) expect(m.text).not.toContain('<attached:')
+  })
+
+  it('reads the timestamps rather than collapsing them onto one message', () => {
+    const { messages } = parseChat(content, 'ios-chat')
+    const seconds = messages.map((m) => new Date(m.timestampMs).getSeconds())
+    expect(seconds).toEqual([2, 21, 39, 57])
+  })
+})

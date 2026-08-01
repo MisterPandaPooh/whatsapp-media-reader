@@ -103,11 +103,24 @@ const PATTERNS: Pattern[] = [
   },
 ]
 
+/**
+ * Bidi control characters. iOS writes a LEFT-TO-RIGHT MARK at the start of
+ * every exported line — invisible, and *not* whitespace (it is category Cf, so
+ * neither `\s` nor `String#trim` touches it). Every pattern below anchors with
+ * `^` directly on the date, so an unstripped mark makes the line fail to match:
+ * it is then treated as a continuation and the whole "[date] Sender: …" prefix
+ * shows up as raw text inside the previous bubble.
+ */
+const LEADING_BIDI = /^[‎‏‪-‮⁦-⁩]+/
+
 export function matchDatePrefix(line: string): DateMatch | null {
+  // Match against the stripped line, and slice from it too, so `rest` never
+  // carries the mark forward into the sender/content split.
+  const text = line.replace(LEADING_BIDI, '')
   for (const { regex, parse } of PATTERNS) {
-    const m = line.match(regex)
+    const m = text.match(regex)
     if (m) {
-      return { timestampMs: parse(m), rest: line.slice(m[0].length) }
+      return { timestampMs: parse(m), rest: text.slice(m[0].length) }
     }
   }
   return null
