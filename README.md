@@ -17,9 +17,37 @@ You browse what was sent, and use any file as a way back into its moment in the 
 
 ![The media grid: every photo, video, document, voice note and link in the export, newest first, with filters across the top](docs/screenshots/grid.png)
 
+## The problem
+
+Years of a group chat hold hundreds of photos, and there are only two ways to reach them, both bad.
+
+WhatsApp's own media gallery gives you a wall of thumbnails with everything stripped away — who sent it, what was being said, why it was funny. And scrolling the thread gives you all of that context but no overview at all: to find one photo from a trip three years ago you scroll past ten thousand messages, on a phone, hoping to recognise it as it flies past.
+
+Exporting is supposed to fix this. It doesn't. You get a `.zip` with a 40MB `_chat.txt` and a flat folder of four thousand files called `IMG-20240817-WA0031.jpg`, sorted by nothing you care about, with the conversation in a text file nobody will ever read.
+
+This app takes that export and turns it into the thing you actually wanted: **every file as a browsable, filterable library, where any tile opens the conversation around it.** The media becomes the index; the chat becomes the detail view.
+
+## What you'd use it for
+
+**Finding the photo you know exists.** You remember who sent it, that it was raining, and that it was somewhere around that trip in May. Filter by sender, drag a date range, and you are looking at twelve tiles instead of scrolling for twenty minutes.
+
+**Getting the photos out.** A group chat is often the only place a set of pictures ever lived — nobody made the shared album. Browse the grid, star the keepers, and download them one at a time under their original filenames.
+
+**Reading a chat by what it produced.** Step through the media with ↑ / ↓ and the panel walks you through the conversation one artefact at a time — the photo, then what everyone said about it. It's a different way to re-read years of a group: not chronologically, but by the things that came out of it.
+
+**Recovering the file someone sent you.** The PDF, the voice note, the address someone dropped as a link. Documents and voice notes get their own filter, so the one contract or one four-minute voice note isn't buried under three thousand holiday photos.
+
+**Going through an archive that matters.** Chats belonging to someone who has died, or a group that ended, are read differently — slowly, and with the words attached. A wall of context-free thumbnails is the wrong tool for that. This is closer to the right one.
+
+**Checking what an export actually contains** before you delete a chat or hand the zip to someone. Attachments the export left out are shown as **Missing** tiles rather than silently vanishing, so you can see exactly what did and did not survive.
+
 ## Everything stays on your machine
 
-There is no backend, no upload, no analytics, no network call of any kind. The app reads the export off your disk with the File System Access API, keeps extracted media in OPFS and the parsed chat in IndexedDB, and that is the whole data path. Close the tab and it is still yours; clear site data and it is gone.
+This matters more here than in most tools, because the input is a private conversation.
+
+There is no backend, no upload, no analytics, no account, no network call of any kind. The app reads the export off your disk with the File System Access API, keeps extracted media in OPFS and the parsed chat in IndexedDB, and that is the whole data path. Nothing is transmitted, because there is nowhere for it to go — the hosted version is a static page and behaves identically. Close the tab and it's still yours; clear site data and it's gone.
+
+It's also read-only. It never writes to, moves, or deletes your export.
 
 ## Running it
 
@@ -34,7 +62,7 @@ Then open the printed URL (usually `http://localhost:5173`).
 
 **Chrome, Edge, or another Chromium browser is required.** Safari and Firefox don't implement the file and directory pickers this depends on, and the app says so plainly rather than half-working.
 
-> **Just want to look around?** Paste [`scripts/demo-seed.js`](scripts/demo-seed.js) into the DevTools console and reload. It loads an invented chat with generated thumbnails — no export needed. It is also what produces the screenshots on this page.
+> **Just want to look around?** Paste [`scripts/demo-seed.js`](scripts/demo-seed.js) into the DevTools console and reload. It loads an invented chat — made-up people, a written-out conversation, stock photographs — so you can try the whole thing without an export. It is also what produces the screenshots on this page.
 
 ## Getting an export out of WhatsApp
 
@@ -55,6 +83,15 @@ An export made *without* media still works: the messages and the timeline are al
 - **Double-click a photo or video** for the fullscreen lightbox, which pages through the same filtered set.
 - **Star** anything; stars survive a reload. So does the chat itself — reopen the tab and it's still there.
 - **Import chat…** in the header swaps in a different export; **Close chat** clears it and returns you to the drop screen. Importing replaces the current chat.
+
+It handles a big export without complaint: the zip is streamed one file at a time rather than held in memory, extraction runs in a worker so the UI never freezes, and the grid is virtualized. A chat with thousands of files opens straight into a usable library.
+
+## What it isn't
+
+- **Not a backup tool.** It reads an export you already have. It never writes to, moves or deletes it, and it can't fetch anything from WhatsApp itself.
+- **Not a chat client.** Read-only. You can't reply, and nothing syncs.
+- **Not multi-chat.** One export at a time; importing another replaces it.
+- **Not a phone app.** It needs the File System Access API, which means a Chromium desktop browser.
 
 ## Commands
 
