@@ -188,3 +188,60 @@ describe('decodeZipEntryName', () => {
     expect(decodeZipEntryName('café.jpg')).toBe('café.jpg')
   })
 })
+
+// The archive is a file on disk that can be far larger than memory. Reading it
+// into one Uint8Array first — which is what the import used to do — fails at
+// around a gigabyte with a NotReadableError, so the source has to be consumed a
+// slice at a time and never fully materialized.
+describe('unzipStreaming from a Blob source', () => {
+  it('decompresses without materializing the whole archive', async () => {
+    const zipBytes = zipSync({
+      '_chat.txt': strToU8('hello'),
+      'IMG-0001.jpg': new Uint8Array([1, 2, 3]),
+    })
+    const blob = new Blob([zipBytes])
+
+    const seen: Record<string, Uint8Array[]> = {}
+    await unzipStreaming(blob, (name) => {
+      seen[name] = []
+      return (chunk) => {
+        seen[name].push(chunk.slice())
+      }
+    })
+
+    expect(Object.keys(seen).sort()).toEqual(['IMG-0001.jpg', '_chat.txt'])
+    expect(new TextDecoder().decode(concat(seen['_chat.txt']))).toBe('hello')
+    expect(Array.from(concat(seen['IMG-0001.jpg']))).toEqual([1, 2, 3])
+  })
+
+  it('never asks the source for more than one push slice at a time', async () => {
+    // The guarantee that makes a 13GB export possible: peak memory is bounded by
+    // the slice size, not by the file size.
+    const zipBytes = zipSync({ 'a.bin': new Uint8Array(3 * 1024 * 1024) })
+    const blob = new Blob([zipBytes])
+    let biggestRead = 0
+    const realSlice = blob.slice.bind(blob)
+    const spy = {
+      size: blob.size,
+      slice: (start: number, end: number) => {
+        biggestRead = Math.max(biggestRead, end - start)
+        return realSlice(start, end)
+      },
+    } as unknown as Blob
+
+    await unzipStreaming(spy, () => () => {})
+
+    expect(biggestRead).toBeGreaterThan(0)
+    expect(biggestRead).toBeLessThanOrEqual(1024 * 1024)
+  })
+
+  it('reports progress against the source size', async () => {
+    const zipBytes = zipSync({ 'a.txt': strToU8('x'.repeat(4096)) })
+    const blob = new Blob([zipBytes])
+    const totals: number[] = []
+
+    await unzipStreaming(blob, () => () => {}, (_consumed, total) => totals.push(total))
+
+    expect(totals.every((t) => t === blob.size)).toBe(true)
+  })
+})

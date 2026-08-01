@@ -1,4 +1,5 @@
 import type { ImportProgress } from '../types'
+import type { ZipSource } from './unzipStreaming'
 import { unzipStreaming } from './unzipStreaming'
 
 /** The name WhatsApp always gives the transcript inside an export. */
@@ -33,7 +34,7 @@ function isAppleDoubleEntry(path: string, basename: string): boolean {
 }
 
 export async function extractZipToOpfs(
-  zipBytes: Uint8Array,
+  zipBytes: ZipSource,
   folderName: string,
   onProgress: (p: ImportProgress) => void,
 ): Promise<{ chatText: string; mediaFilenames: string[] }> {

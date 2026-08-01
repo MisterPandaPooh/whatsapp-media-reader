@@ -93,7 +93,7 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
   }, [onCancel])
 
   function runImport(
-    req: { kind: 'zip'; zipBytes: Uint8Array; title: string } | { kind: 'directory'; handle: FileSystemDirectoryHandle; title: string },
+    req: { kind: 'zip'; file: Blob; title: string } | { kind: 'directory'; handle: FileSystemDirectoryHandle; title: string },
   ) {
     workerRef.current?.terminate()
     setError(null)
@@ -152,24 +152,21 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
 
     const request: ImportRequest =
       req.kind === 'zip'
-        ? { kind: 'zip', chatId, zipBytes: req.zipBytes }
+        ? { kind: 'zip', chatId, file: req.file }
         : { kind: 'directory', chatId, handle: req.handle }
     worker.postMessage(request)
   }
 
-  async function importZipFile(file: File) {
-    // Reading the file can fail after it was picked (moved/deleted on disk) or run out
-    // of memory on a very large export. These handlers are attached straight to DOM
-    // events, so an unhandled rejection here would leave the UI silent.
-    let bytes: Uint8Array
-    try {
-      bytes = new Uint8Array(await file.arrayBuffer())
-    } catch (err) {
-      setError(`Could not read ${file.name}: ${err instanceof Error ? err.message : String(err)}`)
-      setScreen('drop')
-      return
-    }
-    runImport({ kind: 'zip', zipBytes: bytes, title: titleFromZipName(file.name) })
+  function importZipFile(file: File) {
+    // The file is handed to the worker as-is. It used to be read into a single
+    // Uint8Array first, which caps the whole feature at the largest contiguous
+    // buffer the browser will allocate — about a gigabyte, after which Chrome
+    // reports `NotReadableError: The requested file could not be read, typically
+    // due to permission problems…`, which is not a permission problem at all.
+    // A real family export with media is comfortably past that. Now the archive
+    // is read one 1MB slice at a time, inside the worker, and a read that fails
+    // partway surfaces as a normal import error.
+    runImport({ kind: 'zip', file, title: titleFromZipName(file.name) })
   }
 
   /** File System Access pickers reject with AbortError when the user cancels; anything else is a real failure. */

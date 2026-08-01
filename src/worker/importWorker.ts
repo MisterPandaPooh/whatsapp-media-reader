@@ -5,7 +5,10 @@ import { reconcileMediaWithFiles } from './mediaCatalog'
 import type { ImportProgress, ParsedChat, StorageRef } from '../types'
 
 export type ImportRequest =
-  | { kind: 'zip'; chatId: string; zipBytes: Uint8Array }
+  /** The picked file itself. Structured-cloning a Blob hands the worker a
+   *  reference to the same bytes, so nothing is copied and nothing is read
+   *  until `extractZipToOpfs` asks for a slice. */
+  | { kind: 'zip'; chatId: string; file: Blob }
   | { kind: 'directory'; chatId: string; handle: FileSystemDirectoryHandle }
   /**
    * Re-run the parse over a chat that is already in the library, from the
@@ -74,7 +77,7 @@ self.onmessage = async (e: MessageEvent<ImportRequest>) => {
       fileSizes = await listDirectoryFiles(dir)
     } else if (req.kind === 'zip') {
       post({ type: 'progress', progress: { stage: 'reading', progress: 0 } })
-      const extracted = await extractZipToOpfs(req.zipBytes, req.chatId, (p) => post({ type: 'progress', progress: p }))
+      const extracted = await extractZipToOpfs(req.file, req.chatId, (p) => post({ type: 'progress', progress: p }))
       chatText = extracted.chatText
       storageRef = { kind: 'opfs', folder: req.chatId }
       const root = await navigator.storage.getDirectory()

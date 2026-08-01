@@ -101,8 +101,30 @@ export function decodeZipEntryName(name: string): string {
  * @param onProgress optional callback reporting how many of the archive's compressed
  * input bytes have been fed to the decompressor so far, for UI progress reporting.
  */
+/**
+ * Either the archive already in memory, or — for a real export — the File the
+ * user picked, which is read a slice at a time and never fully materialized.
+ *
+ * `Blob.arrayBuffer()` over a whole export is what this exists to avoid: it has
+ * to allocate one contiguous buffer the size of the file, and Chrome gives up
+ * around a gigabyte with `NotReadableError: The requested file could not be
+ * read, typically due to permission problems…` — a message that has nothing to
+ * do with permissions and sends you looking in entirely the wrong place.
+ */
+export type ZipSource = Uint8Array | Blob
+
+function sourceSize(source: ZipSource): number {
+  return source instanceof Uint8Array ? source.length : source.size
+}
+
+/** Only ever asked for one push slice, so peak memory is the slice, not the file. */
+async function readSlice(source: ZipSource, start: number, end: number): Promise<Uint8Array> {
+  if (source instanceof Uint8Array) return source.subarray(start, end)
+  return new Uint8Array(await source.slice(start, end).arrayBuffer())
+}
+
 export async function unzipStreaming(
-  zipBytes: Uint8Array,
+  zipBytes: ZipSource,
   onEntry: UnzipEntryHandler,
   onProgress?: (bytesConsumed: number, totalBytes: number) => void,
 ): Promise<void> {
@@ -130,17 +152,17 @@ export async function unzipStreaming(
   })
   unzipper.register(UnzipInflate)
 
-  const total = zipBytes.length
+  const total = sourceSize(zipBytes)
   if (total === 0) {
     // A well-formed zip is never actually empty (even an empty archive has a 22-byte
     // End of Central Directory record), but guard anyway so we don't skip the final
     // push for a degenerate input.
-    unzipper.push(zipBytes, true)
+    unzipper.push(new Uint8Array(0), true)
   } else {
     for (let offset = 0; offset < total; offset += PUSH_CHUNK_SIZE) {
       const end = Math.min(offset + PUSH_CHUNK_SIZE, total)
       const isLast = end >= total
-      unzipper.push(zipBytes.subarray(offset, end), isLast)
+      unzipper.push(await readSlice(zipBytes, offset, end), isLast)
       // Wait for everything decompressed so far to be handed off before pulling in
       // more compressed input — this is the backpressure that bounds memory use.
       await pending
