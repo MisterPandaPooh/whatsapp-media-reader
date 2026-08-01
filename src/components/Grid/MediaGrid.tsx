@@ -11,9 +11,11 @@ interface Props {
   storageRef: StorageRef
   activeMediaId: string | null
   onOpen: (id: string) => void
+  /** Double-click a tile to open it in the fullscreen gallery. */
+  onOpenFullscreen?: (id: string) => void
 }
 
-export function MediaGrid({ items, storageRef, activeMediaId, onOpen }: Props) {
+export function MediaGrid({ items, storageRef, activeMediaId, onOpen, onOpenFullscreen }: Props) {
   const parentRef = useRef<HTMLDivElement | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   // Kept in state as well as in a ref: tiles need it as their
@@ -105,6 +107,7 @@ export function MediaGrid({ items, storageRef, activeMediaId, onOpen }: Props) {
                 storageRef={storageRef}
                 selected={item.id === activeMediaId}
                 onOpen={onOpen}
+                onOpenFullscreen={onOpenFullscreen}
                 scrollRoot={scrollRoot}
               />
             ))}

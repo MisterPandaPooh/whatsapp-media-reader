@@ -130,3 +130,44 @@ describe('MediaTile content', () => {
     expect(screen.getByText('LINK')).not.toBeNull()
   })
 })
+
+describe('MediaTile double-click', () => {
+  it('opens the fullscreen gallery for the tile that was double-clicked', () => {
+    const item = makeItem()
+    const onOpen = vi.fn()
+    const onOpenFullscreen = vi.fn()
+    useChatStore.setState({
+      chat: {
+        chatId: 'chat-1',
+        title: 'Test chat',
+        importedAtMs: 0,
+        storageRef,
+        meParticipant: null,
+        parsed: { messages: [], media: [item], participants: ['Alice'] },
+        starred: {},
+      },
+    })
+    render(
+      <MediaTile
+        item={item}
+        storageRef={storageRef}
+        selected={false}
+        onOpen={onOpen}
+        onOpenFullscreen={onOpenFullscreen}
+        scrollRoot={null}
+      />,
+    )
+    fireEvent.doubleClick(document.querySelector('.tile-open')!)
+
+    expect(onOpenFullscreen).toHaveBeenCalledWith('m1')
+  })
+
+  it('is inert when no fullscreen handler is given', () => {
+    const onOpen = vi.fn()
+    renderTile(makeItem(), onOpen)
+    // Single click still selects; the second one simply selects again.
+    fireEvent.doubleClick(document.querySelector('.tile-open')!)
+
+    expect(document.querySelector('.tile-open')).not.toBeNull()
+  })
+})

@@ -69,6 +69,10 @@ export default function App() {
   // "Import chat…" pressed while a chat is loaded. The import screen goes over
   // the reader, which stays mounted underneath so cancelling is free.
   const [importing, setImporting] = useState(false)
+  // Whether the fullscreen gallery is up. Declared here with the other overlay
+  // state because the Escape effect below reads it — the gallery, the import
+  // screen and the panel all answer to the same key, and only one of them may.
+  const [galleryOpen, setGalleryOpen] = useState(false)
 
   useEffect(() => {
     if (!SUPPORTED) {
@@ -162,7 +166,13 @@ export default function App() {
     // no effect on a window-level key listener, so without this guard the same
     // Escape that dismisses the overlay would also close the detail panel
     // hidden behind it.
-    if (!activeMediaId || importing) return
+    //
+    // The gallery is the same story: it closes itself on Escape, and the panel
+    // is what the reader lands back on. Without this guard one Escape would
+    // dismiss the gallery *and* the panel behind it, so a double-click into
+    // fullscreen and a press of Escape would leave the reader with nothing
+    // selected at all.
+    if (!activeMediaId || importing || galleryOpen) return
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const tag = (e.target as HTMLElement | null)?.tagName
@@ -172,7 +182,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [activeMediaId, importing, closePanel])
+  }, [activeMediaId, importing, galleryOpen, closePanel])
 
   // Stable identity: ImportScreen subscribes a window listener keyed on this
   // prop, and a fresh arrow every render would tear it down and rebuild it on
@@ -233,11 +243,25 @@ export default function App() {
   // since activeMediaId stayed set and the panel sprang back when the filter was
   // relaxed. Out-of-set is a state the panel already renders honestly: the
   // position indicator reads "— of M" and Next drops back into the filtered set.
+  //
   // The gallery walks the same filtered set the panel's prev/next does, minus
   // the kinds it cannot show. Kept separate from `media` so a document sitting
   // between two photos does not silently shift the gallery's indices.
-  const [galleryOpen, setGalleryOpen] = useState(false)
   const gallery = useMemo(() => galleryItems(media), [media])
+
+  // Double-click anywhere a photo or video is shown — a grid tile, a preview in
+  // the thread — opens it fullscreen. Silently ignores an item the gallery has
+  // no slide for, which is the same rule that hides the panel's own fullscreen
+  // button: the gallery walks the filtered set, and an item outside it has no
+  // position to open at.
+  const openFullscreen = useCallback(
+    (id: string) => {
+      if (!gallery.some((m) => m.id === id)) return
+      openMedia(id)
+      setGalleryOpen(true)
+    },
+    [gallery, openMedia],
+  )
 
   const activeItem = useMemo(
     () => (chat && activeMediaId ? chat.parsed.media.find((m) => m.id === activeMediaId) : undefined),
@@ -343,6 +367,7 @@ export default function App() {
               storageRef={chat.storageRef}
               activeMediaId={activeMediaId}
               onOpen={openMedia}
+              onOpenFullscreen={openFullscreen}
             />
           </main>
           {activeItem && (
@@ -354,6 +379,7 @@ export default function App() {
               onViewFullscreen={
                 gallery.some((m) => m.id === activeItem.id) ? () => setGalleryOpen(true) : undefined
               }
+              onOpenMediaFullscreen={openFullscreen}
               meParticipant={chat.meParticipant}
               storageRef={chat.storageRef}
             />

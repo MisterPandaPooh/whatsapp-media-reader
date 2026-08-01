@@ -1,6 +1,6 @@
 // src/components/Panel/BubbleMedia.test.tsx
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { MediaItem, StorageRef } from '../../types'
 
 const readMediaFile = vi.fn()
@@ -109,5 +109,29 @@ describe('BubbleMedia', () => {
     await screen.findByRole('img')
     unmount()
     expect(revoke).toHaveBeenCalledWith('blob:fake')
+  })
+})
+
+describe('BubbleMedia double-click', () => {
+  it('opens the fullscreen gallery from a preview in the thread', async () => {
+    readMediaFile.mockResolvedValue(new File(['x'], 'IMG-0001.jpg'))
+    const onOpen = vi.fn()
+    const onOpenFullscreen = vi.fn()
+    render(
+      <BubbleMedia
+        item={media()}
+        storageRef={storageRef}
+        onOpen={onOpen}
+        onOpenFullscreen={onOpenFullscreen}
+      />,
+    )
+    const button = await waitFor(() => {
+      const el = document.querySelector('.bubble-media--button')
+      expect(el).not.toBeNull()
+      return el!
+    })
+    fireEvent.doubleClick(button)
+
+    expect(onOpenFullscreen).toHaveBeenCalledWith('m1')
   })
 })

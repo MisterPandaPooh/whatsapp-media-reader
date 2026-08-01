@@ -8,6 +8,9 @@ interface Props {
   storageRef: StorageRef
   selected: boolean
   onOpen: (id: string) => void
+  /** Double-click straight into the fullscreen gallery. Absent for a kind the
+   *  gallery cannot show, so the second click is simply a second open. */
+  onOpenFullscreen?: (id: string) => void
   /** Scroll container used as the IntersectionObserver root. */
   scrollRoot: Element | null
 }
@@ -19,7 +22,14 @@ function badgeLabel(item: MediaItem): string {
   return ext ? ext.toUpperCase() : 'FILE'
 }
 
-export function MediaTile({ item, storageRef, selected, onOpen, scrollRoot }: Props) {
+export function MediaTile({
+  item,
+  storageRef,
+  selected,
+  onOpen,
+  onOpenFullscreen,
+  scrollRoot,
+}: Props) {
   // Only visual media that actually exists on disk is worth fetching.
   const isVisual = item.kind === 'photo' || item.kind === 'video'
   const { ref, url } = useLazyThumbnail<HTMLDivElement>(
@@ -82,6 +92,9 @@ export function MediaTile({ item, storageRef, selected, onOpen, scrollRoot }: Pr
         aria-label={label}
         aria-current={selected || undefined}
         onClick={() => onOpen(item.id)}
+        // dblclick fires after both clicks, so the panel has already opened
+        // behind the gallery and is where the reader lands on closing it.
+        onDoubleClick={onOpenFullscreen && (() => onOpenFullscreen(item.id))}
       />
 
       <button

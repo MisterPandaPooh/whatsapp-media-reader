@@ -23,6 +23,8 @@ interface Props {
   storageRef?: StorageRef
   /** Makes the preview a control that selects this item in the reader. */
   onOpen?: (mediaId: string) => void
+  /** Double-click straight into the fullscreen gallery, as on a grid tile. */
+  onOpenFullscreen?: (mediaId: string) => void
 }
 
 /**
@@ -37,7 +39,7 @@ interface Props {
  * Nothing here needs an IntersectionObserver: virtualization only mounts rows
  * near the viewport, so mounting is already the "is it visible" signal.
  */
-export function BubbleMedia({ item, storageRef, onOpen }: Props) {
+export function BubbleMedia({ item, storageRef, onOpen, onOpenFullscreen }: Props) {
   const previewable = !!storageRef && isPreviewable(item)
   const url = useMediaObjectUrl(storageRef, item.filename, previewable)
   const label = KIND_LABEL[item.kind]
@@ -93,6 +95,7 @@ export function BubbleMedia({ item, storageRef, onOpen }: Props) {
       type="button"
       className="bubble-media bubble-media--button"
       onClick={() => onOpen(item.id)}
+      onDoubleClick={onOpenFullscreen && (() => onOpenFullscreen(item.id))}
       title={item.filename}
       aria-label={`${label}: ${item.caption || item.filename}`}
     >

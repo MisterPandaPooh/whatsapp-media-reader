@@ -73,6 +73,8 @@ interface Props {
   storageRef?: StorageRef
   /** Selects an attachment in the reader when its preview is clicked. */
   onOpenMedia?: (mediaId: string) => void
+  /** Double-click a preview in the thread to open the fullscreen gallery. */
+  onOpenMediaFullscreen?: (mediaId: string) => void
   /** Whether the chat continues past either edge of `messages`. False on both
    *  means this window is the whole conversation. */
   hasMoreBefore?: boolean
@@ -96,6 +98,7 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
     mediaById,
     storageRef,
     onOpenMedia,
+    onOpenMediaFullscreen,
     hasMoreBefore = false,
     hasMoreAfter = false,
     onExtendBefore,
@@ -301,6 +304,7 @@ export const MessageThread = forwardRef<MessageThreadHandle, Props>(function Mes
                         item={attachment}
                         storageRef={storageRef}
                         onOpen={onOpenMedia}
+                        onOpenFullscreen={onOpenMediaFullscreen}
                       />
                     )}
                     {m.omittedMedia && (

@@ -21,6 +21,9 @@ interface Props {
   /** Opens the fullscreen gallery at this item. Absent for a kind the gallery
    *  cannot show (a document, a link, a file missing from the export). */
   onViewFullscreen?: () => void
+  /** Opens the gallery at any attachment in the thread, by id — the thread
+   *  shows media either side of the selected one, not only the selection. */
+  onOpenMediaFullscreen?: (mediaId: string) => void
 }
 
 const KIND_LABEL: Record<MediaItem['kind'], string> = {
@@ -46,6 +49,7 @@ export function DetailPanel({
   meParticipant,
   storageRef,
   onViewFullscreen,
+  onOpenMediaFullscreen,
 }: Props) {
   const openMedia = useChatStore((s) => s.openMedia)
   const closePanel = useChatStore((s) => s.closePanel)
@@ -321,6 +325,7 @@ export function DetailPanel({
         mediaById={mediaById}
         storageRef={storageRef}
         onOpenMedia={openMedia}
+        onOpenMediaFullscreen={onOpenMediaFullscreen}
         hasMoreBefore={range.start > 0}
         hasMoreAfter={range.end < messages.length}
         onExtendBefore={extendBefore}
