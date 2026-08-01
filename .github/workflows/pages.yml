@@ -38,8 +38,14 @@ jobs:
           echo "Building $TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      # Through the environment, not `${{ }}` inline: expression expansion happens
+      # before the shell parses the line, so quoting an interpolated value does not
+      # contain it. Git ref rules forbid spaces but allow `" ; $ ( ) { } |` and
+      # backticks, so a crafted tag name in a `run:` block is a command.
       - name: Check out that tag
-        run: git checkout --detach "${{ steps.release.outputs.tag }}"
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: git checkout --detach "$TAG"
 
       - uses: actions/setup-node@v4
         with:

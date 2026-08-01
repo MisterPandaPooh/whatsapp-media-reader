@@ -193,3 +193,83 @@ describe('extractZipToOpfs', () => {
     expect(Object.keys(written).sort()).toEqual(['שלום-תמונה.png', '_chat.txt'].sort())
   })
 })
+
+// An export is a file you were sent. Treating its entry names as trusted is the
+// classic zip-slip mistake: an archive whose entries are `../../…` writes wherever
+// the attacker points, and nothing in a zip prevents those names.
+//
+// What stops it here is one line — the `name.split('/').pop()` in zipExtract that
+// reduces every entry to its basename before any file handle exists. That line
+// looks like tidying up, so these tests exist to say out loud that it is load
+// bearing: a refactor that "preserves the archive's folder structure" must fail
+// here rather than silently reopening the hole.
+describe('extractZipToOpfs treats zip entry names as hostile', () => {
+  afterEach(() => {
+    // @ts-expect-error test-only stub, not a full FileSystemDirectoryHandle
+    delete navigator.storage
+  })
+
+  function extract(entries: Record<string, Uint8Array>) {
+    const { root, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+    const zipBytes = zipSync({ '_chat.txt': strToU8('CHAT'), ...entries })
+    return extractZipToOpfs(zipBytes, 'test-folder', () => {}).then((result) => ({ result, written }))
+  }
+
+  it('flattens a traversing entry to its basename instead of climbing out of the chat folder', async () => {
+    const { result, written } = await extract({
+      '../../../evil.jpg': new Uint8Array([1]),
+    })
+
+    expect(result.mediaFilenames).toEqual(['evil.jpg'])
+    expect(Object.keys(written)).toContain('evil.jpg')
+    // Nothing may reach a handle with a separator or a parent reference still in it.
+    for (const name of Object.keys(written)) {
+      expect(name).not.toContain('/')
+      expect(name.split('/')).toHaveLength(1)
+      expect(name).not.toBe('..')
+    }
+  })
+
+  it('flattens an absolute entry path', async () => {
+    const { result } = await extract({ '/etc/passwd': new Uint8Array([1]) })
+    expect(result.mediaFilenames).toEqual(['passwd'])
+  })
+
+  it('keeps a deep entry inside the chat folder rather than recreating the tree', async () => {
+    const { result, written } = await extract({
+      'WhatsApp Chat/media/photos/IMG-001.jpg': new Uint8Array([1]),
+    })
+
+    expect(result.mediaFilenames).toEqual(['IMG-001.jpg'])
+    expect(Object.keys(written)).toContain('IMG-001.jpg')
+  })
+
+  // Backslashes are not path separators to `split('/')`, so this name survives whole.
+  // That is fine — OPFS is not name-mapped, so the worst case is a file with a silly
+  // name *inside* the chat folder — but pin the behaviour so it stays deliberate.
+  it('does not let a Windows-style traversal produce a separator', async () => {
+    const { result } = await extract({ '..\\..\\evil.jpg': new Uint8Array([1]) })
+
+    expect(result.mediaFilenames).toHaveLength(1)
+    expect(result.mediaFilenames[0]).not.toContain('/')
+  })
+
+  it('does not smuggle a separator through a percent-encoded one', async () => {
+    const { result } = await extract({ '..%2F..%2Fevil.jpg': new Uint8Array([1]) })
+
+    // Nothing decodes percent-escapes, so this stays one literal filename.
+    expect(result.mediaFilenames).toEqual(['..%2F..%2Fevil.jpg'])
+  })
+
+  it('still finds the transcript when the archive nests it under a folder', async () => {
+    const { result } = await extract({
+      'WhatsApp Chat - Trip/_chat.txt': strToU8('NESTED CHAT'),
+    })
+
+    // The outer `_chat.txt` claims the transcript first; the nested one is flattened
+    // to the same basename, so what matters is that neither escapes the folder.
+    expect(result.chatText).toBe('CHAT')
+  })
+})
