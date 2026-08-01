@@ -144,3 +144,42 @@ describe('an export that parses to nothing', () => {
     expect(screen.queryByRole('alert')).toBeNull()
   })
 })
+
+describe('getting-the-export instructions on the drop screen', () => {
+  it('tells a first-time visitor how to make the file, in order', () => {
+    // Someone arriving with no export has nothing to drop. The steps are the
+    // difference between a usable screen and a dead end.
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    const steps = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
+
+    expect(steps).toHaveLength(5)
+    expect(steps[0]).toMatch(/WhatsApp/i)
+    expect(steps[1]).toMatch(/Export chat/i)
+    // The media choice is the one that silently ruins an export, so it must be
+    // called out rather than left to the WhatsApp defaults.
+    expect(steps[2]).toMatch(/Attach media/i)
+  })
+
+  it('links out to WhatsApp`s own help page, safely', () => {
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    const link = screen.getByRole('link', { name: /WhatsApp.+instructions/i }) as HTMLAnchorElement
+
+    expect(link.href).toContain('faq.whatsapp.com')
+    expect(link.target).toBe('_blank')
+    // Opening someone else's page must not hand it a reference back to this tab.
+    expect(link.rel).toContain('noopener')
+  })
+
+  it('does not pop the file picker when the help link is followed', () => {
+    // Same trap as Cancel: the whole card opens a file dialog on click.
+    render(<ImportScreen onOpen={vi.fn()} />)
+    const fileInput = document.querySelector('.import-file-input') as HTMLInputElement
+    const inputClick = vi.spyOn(fileInput, 'click')
+
+    fireEvent.click(screen.getByRole('link', { name: /WhatsApp.+instructions/i }))
+
+    expect(inputClick).not.toHaveBeenCalled()
+  })
+})
