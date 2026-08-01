@@ -50,7 +50,7 @@ src/
 - [ ] **Step 1: Scaffold with Vite**
 
 ```bash
-cd /Users/netanelcs/Desktop/whatsapp-revert-image
+cd whatsapp-revert-image
 npm create vite@latest . -- --template react-ts
 ```
 

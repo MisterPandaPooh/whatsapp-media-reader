@@ -1,7 +1,15 @@
 {
   "name": "whatsapp-media-reader",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Browse an exported WhatsApp chat with the media as the index and the conversation as the detail view. Runs entirely in your browser.",
+  "license": "MIT",
+  "author": "MisterPandaPooh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MisterPandaPooh/whatsapp-media-reader.git"
+  },
+  "keywords": ["whatsapp", "chat-export", "media-gallery", "local-first", "react", "opfs"],
   "type": "module",
   "scripts": {
     "dev": "vite",
