@@ -17,6 +17,7 @@
     "idb": "^8.0.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "yet-another-react-lightbox": "^3.32.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

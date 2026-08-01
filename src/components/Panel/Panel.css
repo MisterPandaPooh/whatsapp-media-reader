@@ -404,3 +404,12 @@
   text-align: right;
   margin-top: 2px;
 }
+
+/* Icon-only action: square, so it reads as a control rather than a clipped label. */
+.panel-action-btn--icon {
+  width: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

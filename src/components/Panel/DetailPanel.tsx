@@ -18,6 +18,9 @@ interface Props {
   filteredIds: string[]
   meParticipant: string | null
   storageRef: StorageRef
+  /** Opens the fullscreen gallery at this item. Absent for a kind the gallery
+   *  cannot show (a document, a link, a file missing from the export). */
+  onViewFullscreen?: () => void
 }
 
 const KIND_LABEL: Record<MediaItem['kind'], string> = {
@@ -42,6 +45,7 @@ export function DetailPanel({
   filteredIds,
   meParticipant,
   storageRef,
+  onViewFullscreen,
 }: Props) {
   const openMedia = useChatStore((s) => s.openMedia)
   const closePanel = useChatStore((s) => s.closePanel)
@@ -269,6 +273,26 @@ export function DetailPanel({
             >
               {activeItem.starred ? '★ Starred' : '☆ Star'}
             </button>
+            {onViewFullscreen && (
+              <button
+                type="button"
+                className="panel-action-btn panel-action-btn--icon"
+                onClick={onViewFullscreen}
+                title="View fullscreen"
+                aria-label="View fullscreen"
+              >
+                {/* Four corners: the conventional "expand" glyph. */}
+                <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+                  <path
+                    d="M1 5.5V1.5A.5.5 0 0 1 1.5 1h4M10.5 1h4a.5.5 0 0 1 .5.5v4M15 10.5v4a.5.5 0 0 1-.5.5h-4M5.5 15h-4a.5.5 0 0 1-.5-.5v-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               className="panel-action-btn"
