@@ -70,6 +70,10 @@ describe('unzipStreaming', () => {
     expect(finalFlags.slice(0, -1)).not.toContain(true)
   })
 
+  // 3MB through the streamer and then a byte-for-byte comparison takes ~2.5s on a
+  // fast laptop, which is close enough to the 5s default to fail on a slower CI
+  // runner. The size is the point of the test, so raise the timeout rather than
+  // shrink the file.
   it('streams a large entry across multiple internal push() chunks and preserves byte order', async () => {
     // Bigger than unzipStreaming's internal 1MB push slice, so this exercises a file
     // whose compressed data spans multiple Unzip.push() calls.
@@ -90,7 +94,7 @@ describe('unzipStreaming', () => {
 
     expect(seenName).toBe('video.mp4')
     expect(concat(chunks)).toEqual(big)
-  })
+  }, 30_000)
 
   it('propagates an error thrown by the chunk handler', async () => {
     const zipBytes = zipSync({ 'a.txt': strToU8('x') })
