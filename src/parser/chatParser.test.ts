@@ -245,3 +245,55 @@ describe('parseChat on a real iOS export', () => {
     expect(seconds).toEqual([2, 21, 39, 57])
   })
 })
+
+// Taken from a real export the user reported: a plain line parses, then every
+// following attachment line carries U+200E and (before the fix) failed to
+// match, so all of them were appended to that first message as raw text —
+// exactly the "[29/07/2026, 13:58:11] Nina Duval: <attached: …>" wall the
+// reader was showing inside one bubble.
+describe('parseChat on a mixed real export where only some lines carry a bidi mark', () => {
+  const LTR = '‎'
+  const RLM = '‏'
+  const content = [
+    `[29/07/2026, 13:56:40] Amit Bar Lev: ${RLM}שבת שלום לכולם`,
+    `${LTR}[29/07/2026, 13:57:05] Nina Duval: ${LTR}<attached: 00000095-PHOTO.jpg>`,
+    `${LTR}[29/07/2026, 13:58:11] Nina Duval: ${LTR}<attached: 00000097-PHOTO.jpg>`,
+    `${LTR}[29/07/2026, 13:59:02] Nina Duval: ${LTR}<attached: 00000099-PHOTO.jpg>`,
+  ].join('\n')
+
+  it('does not glue the marked lines onto the unmarked one', () => {
+    const { messages } = parseChat(content, 'mixed')
+    expect(messages).toHaveLength(4)
+    expect(messages[0].text).not.toContain('[29/07/2026, 13:57:05]')
+    expect(messages[0].text).not.toContain('<attached:')
+  })
+
+  it('attributes both senders', () => {
+    const { participants } = parseChat(content, 'mixed')
+    expect(participants.sort()).toEqual(['Nina Duval', 'Amit Bar Lev'])
+  })
+
+  it('links all three attachments', () => {
+    const { media } = parseChat(content, 'mixed')
+    expect(media.map((m) => m.filename)).toEqual([
+      '00000095-PHOTO.jpg',
+      '00000097-PHOTO.jpg',
+      '00000099-PHOTO.jpg',
+    ])
+  })
+
+  // The visible symptom of the folding bug was not the thread but the *grid*:
+  // once the marked lines were glued onto the unmarked one, the first attachment
+  // in the resulting blob was credited to whoever wrote the text above it, and
+  // the rest vanished from the library entirely.
+  it('credits every photo to the person who sent it, not to the previous speaker', () => {
+    const { media } = parseChat(content, 'mixed')
+    expect(media.map((m) => m.sender)).toEqual(['Nina Duval', 'Nina Duval', 'Nina Duval'])
+  })
+
+  it('leaves no raw marker behind as bubble text', () => {
+    const { messages } = parseChat(content, 'mixed')
+    expect(messages.filter((m) => m.text.includes('<attached:'))).toHaveLength(0)
+    expect(messages.filter((m) => /\[\d{2}\/\d{2}\/\d{4},/.test(m.text))).toHaveLength(0)
+  })
+})

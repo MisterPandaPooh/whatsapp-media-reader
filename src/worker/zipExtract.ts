@@ -148,6 +148,17 @@ export async function extractZipToOpfs(
       throw new Error('No _chat.txt file found in the zip archive.')
     }
 
+    // Keep the transcript alongside the media rather than only handing it back as
+    // a string. A zip-imported chat has no other copy of its source — the archive
+    // the user dropped is gone once the import finishes — so without this the
+    // parse could never be redone, and a later parser fix could not reach a chat
+    // already in the library (see PARSER_VERSION). Deliberately not added to
+    // `mediaFilenames`: it is the source, not an attachment.
+    const chatFile = await chatDir.getFileHandle(CHAT_FILENAME, { create: true })
+    const chatWritable = await chatFile.createWritable()
+    await chatWritable.write(new TextEncoder().encode(chatText))
+    await chatWritable.close()
+
     onProgress({ stage: 'extracting', progress: 100 })
     return { chatText, mediaFilenames }
   } catch (err) {

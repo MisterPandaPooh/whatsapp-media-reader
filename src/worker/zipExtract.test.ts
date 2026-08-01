@@ -90,7 +90,11 @@ describe('extractZipToOpfs', () => {
 
     expect(result.chatText).toBe('REAL CHAT CONTENT')
     expect(result.mediaFilenames).toEqual(['readme.txt'])
-    expect(Object.keys(written)).toEqual(['readme.txt'])
+    expect(Object.keys(written).sort()).toEqual(['readme.txt', '_chat.txt'].sort())
+    // The transcript is kept in OPFS as well as returned: the dropped archive is
+    // gone after the import, and this copy is the only thing that lets a later
+    // parser fix be applied to a chat already in the library.
+    expect(new TextDecoder().decode(concatWritten(written['_chat.txt']))).toBe('REAL CHAT CONTENT')
   })
 
   it('prefers an entry named _chat.txt over an earlier, differently-named .txt', async () => {
@@ -110,7 +114,7 @@ describe('extractZipToOpfs', () => {
     expect(result.chatText).toBe('REAL CHAT CONTENT')
     // The demoted candidate is still a real attachment — it must reach OPFS.
     expect(result.mediaFilenames).toEqual(['notes.txt'])
-    expect(Object.keys(written)).toEqual(['notes.txt'])
+    expect(Object.keys(written).sort()).toEqual(['notes.txt', '_chat.txt'].sort())
     expect(Array.from(concatWritten(written['notes.txt']))).toEqual(
       Array.from(strToU8('SOME OTHER TXT')),
     )
@@ -130,7 +134,7 @@ describe('extractZipToOpfs', () => {
 
     expect(result.chatText).toBe('FALLBACK CHAT CONTENT')
     expect(result.mediaFilenames).toEqual(['later.txt'])
-    expect(Object.keys(written)).toEqual(['later.txt'])
+    expect(Object.keys(written).sort()).toEqual(['later.txt', '_chat.txt'].sort())
   })
 
   it('never claims an AppleDouble sidecar as the chat transcript', async () => {
@@ -168,7 +172,7 @@ describe('extractZipToOpfs', () => {
 
     expect(result.chatText).toBe('REAL CHAT CONTENT')
     expect(result.mediaFilenames).toEqual(['IMG-001.jpg'])
-    expect(Object.keys(written)).toEqual(['IMG-001.jpg'])
+    expect(Object.keys(written).sort()).toEqual(['IMG-001.jpg', '_chat.txt'].sort())
   })
 
   it('writes a non-ASCII media filename correctly when the zip UTF-8 flag is unset', async () => {
@@ -186,6 +190,6 @@ describe('extractZipToOpfs', () => {
     const result = await extractZipToOpfs(zipBytes, 'test-folder', () => {})
 
     expect(result.mediaFilenames).toEqual(['שלום-תמונה.png'])
-    expect(Object.keys(written)).toEqual(['שלום-תמונה.png'])
+    expect(Object.keys(written).sort()).toEqual(['שלום-תמונה.png', '_chat.txt'].sort())
   })
 })

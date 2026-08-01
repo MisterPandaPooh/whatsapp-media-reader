@@ -42,6 +42,13 @@ export interface StoredChat {
   meParticipant: string | null
   parsed: ParsedChat
   starred: Record<string, boolean>
+  /**
+   * Which build of the parser produced `parsed`. Optional because records
+   * written before this field existed have none — and those are precisely the
+   * ones that need re-parsing, so `undefined` correctly reads as "stale".
+   * See `PARSER_VERSION`.
+   */
+  parserVersion?: number
 }
 
 export type ImportProgress = {

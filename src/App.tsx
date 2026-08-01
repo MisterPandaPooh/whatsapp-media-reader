@@ -5,9 +5,12 @@ import { AppHeader } from './components/Header/AppHeader'
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { MediaGrid } from './components/Grid/MediaGrid'
 import { DetailPanel } from './components/Panel/DetailPanel'
+import { MediaLightbox } from './components/Gallery/MediaLightbox'
+import { galleryItems } from './components/Gallery/galleryItems'
 import { useChatStore } from './store/useChatStore'
 import { filteredMedia } from './store/selectors'
 import { deleteChat, loadLastChat } from './storage/chatRepository'
+import { needsReparse, reparseChat } from './storage/reparseChat'
 import {
   discardStorage,
   ensurePermission,
@@ -58,6 +61,11 @@ export default function App() {
   // click before we can read anything out of it.
   const [needsPermission, setNeedsPermission] = useState<StoredChat | null>(null)
   const [permissionError, setPermissionError] = useState<string | null>(null)
+  // A restored chat whose stored parse predates the current parser and is being
+  // re-derived from its transcript before it is shown. Held out of `chat` on
+  // purpose: rendering the stale parse first and swapping it under the user is
+  // exactly the flash of wrong content the restore gate above avoids.
+  const [upgrading, setUpgrading] = useState<StoredChat | null>(null)
   // "Import chat…" pressed while a chat is loaded. The import screen goes over
   // the reader, which stays mounted underneath so cancelling is free.
   const [importing, setImporting] = useState(false)
@@ -101,7 +109,10 @@ export default function App() {
           if (settled) return
           // Unreachable storage (OPFS evicted, folder deleted or moved) falls
           // through to the import screen rather than a grid of broken tiles.
-          if (reachable) setChat(stored)
+          if (reachable) {
+            if (needsReparse(stored)) setUpgrading(stored)
+            else setChat(stored)
+          }
         }
       }
       settled = true
@@ -114,6 +125,31 @@ export default function App() {
       clearTimeout(timer)
     }
   }, [setChat])
+
+  // Re-parse a restored chat written by an older parser. Deliberately outside
+  // the restore effect and its timeout: this reads the whole export folder, so
+  // it can legitimately take longer than a database read, and being cut off
+  // would throw away a chat that is merely slow to upgrade. A failure here is
+  // not fatal — the stored parse is opened as-is, and the next load tries again.
+  useEffect(() => {
+    if (!upgrading) return
+    let cancelled = false
+    void reparseChat(upgrading).then(
+      (next) => {
+        if (cancelled) return
+        setChat(next)
+        setUpgrading(null)
+      },
+      () => {
+        if (cancelled) return
+        setChat(upgrading)
+        setUpgrading(null)
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [upgrading, setChat])
 
   // Escape pressed anywhere outside the panel (a grid tile, the page body)
   // closes it. The panel's own handler stops propagation before the event
@@ -161,7 +197,8 @@ export default function App() {
       setPermissionError('That folder is no longer where it was. Import the export again.')
       return
     }
-    setChat(pending)
+    if (needsReparse(pending)) setUpgrading(pending)
+    else setChat(pending)
     setNeedsPermission(null)
   }
 
@@ -196,6 +233,12 @@ export default function App() {
   // since activeMediaId stayed set and the panel sprang back when the filter was
   // relaxed. Out-of-set is a state the panel already renders honestly: the
   // position indicator reads "— of M" and Next drops back into the filtered set.
+  // The gallery walks the same filtered set the panel's prev/next does, minus
+  // the kinds it cannot show. Kept separate from `media` so a document sitting
+  // between two photos does not silently shift the gallery's indices.
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const gallery = useMemo(() => galleryItems(media), [media])
+
   const activeItem = useMemo(
     () => (chat && activeMediaId ? chat.parsed.media.find((m) => m.id === activeMediaId) : undefined),
     [chat, activeMediaId],
@@ -250,6 +293,21 @@ export default function App() {
     )
   }
 
+  if (upgrading) {
+    return (
+      <div className="import-overlay">
+        <div className="import-card summary-card">
+          <div className="import-title">Updating “{upgrading.title}”</div>
+          <div className="import-sub">
+            This chat was read by an earlier version of the parser, which split some messages in
+            the wrong place and credited a few attachments to the wrong person. It is being read
+            again from the transcript in your export — no files are copied and nothing is uploaded.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!chat) {
     return (
       <ImportScreen
@@ -293,12 +351,29 @@ export default function App() {
               messages={chat.parsed.messages}
               allMedia={chat.parsed.media}
               filteredIds={filteredIds}
+              onViewFullscreen={
+                gallery.some((m) => m.id === activeItem.id) ? () => setGalleryOpen(true) : undefined
+              }
               meParticipant={chat.meParticipant}
               storageRef={chat.storageRef}
             />
           )}
         </div>
       </div>
+      {galleryOpen && activeItem && (
+        <MediaLightbox
+          items={gallery}
+          index={Math.max(
+            0,
+            gallery.findIndex((m) => m.id === activeItem.id),
+          )}
+          storageRef={chat.storageRef}
+          onClose={() => setGalleryOpen(false)}
+          // Leaves the grid and panel on whatever the reader ended up looking
+          // at, rather than snapping back to where the gallery was opened.
+          onIndexChange={openMedia}
+        />
+      )}
     </>
   )
 }

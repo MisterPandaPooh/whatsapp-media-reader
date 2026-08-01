@@ -4,6 +4,7 @@ import type { ChangeEvent, DragEvent } from 'react'
 import type { ImportProgress, ParsedChat, StorageRef, StoredChat } from '../../types'
 import type { ImportRequest, ImportResponse } from '../../worker/importWorker'
 import { saveChat } from '../../storage/chatRepository'
+import { PARSER_VERSION } from '../../parser/version'
 import { discardStorage } from '../../storage/fileAccess'
 import './ImportScreen.css'
 
@@ -248,6 +249,7 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
       meParticipant: mePick || null,
       parsed: result.parsed,
       starred: {},
+      parserVersion: PARSER_VERSION,
     }
     try {
       await saveChat(stored)
