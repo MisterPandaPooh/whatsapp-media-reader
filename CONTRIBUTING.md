@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Chromium-family browser required — the app depends on the File System Access API and OPFS.
+Any browser with the origin private file system will run the app: Chrome, Edge, Brave, Arc, Opera, Safari 15.2+ or Firefox 111+. Opening an unzipped folder in place additionally needs the File System Access directory picker, which is Chromium-only today, so develop that path in a Chromium browser.
 
 You do not need a real export to develop against. Paste [`scripts/demo-seed.js`](scripts/demo-seed.js) into the DevTools console and reload: it writes an invented chat straight into OPFS and IndexedDB, in the same shape the import worker produces. Clear it again with Application → Storage → Clear site data.
 
@@ -46,6 +46,7 @@ Tests sit next to what they test. The ones worth knowing about:
 - `src/worker/*.test.ts` — zip streaming, OPFS extraction, and reconciling transcript filenames against what is actually on disk (NFC/NFD, mis-flagged UTF-8, `__MACOSX` entries). `src/worker/fixtures/macos-ditto-export.zip` is a synthetic archive built to exercise exactly those cases.
 - `src/storage/*.test.ts` — IndexedDB persistence and the re-parse-on-version-bump path, against `fake-indexeddb`.
 - Component tests use Testing Library and assert on roles and accessible names rather than class names.
+- Capability checks are per-feature, not per-browser. `showDirectoryPicker` gates only the folder button; OPFS gates the app. Do not collapse them back into one check — that is what shut Safari and Firefox out of zip import.
 
 ## Changing the parser
 

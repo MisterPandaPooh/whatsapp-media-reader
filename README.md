@@ -8,7 +8,7 @@ You browse what was sent, and use any file as a way back into its moment in the 
 
 [![CI](https://github.com/MisterPandaPooh/whatsapp-media-reader/actions/workflows/ci.yml/badge.svg)](https://github.com/MisterPandaPooh/whatsapp-media-reader/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Chromium required](https://img.shields.io/badge/browser-Chromium-4285F4)
+![Runs in the browser](https://img.shields.io/badge/browser-Chrome%20%7C%20Edge%20%7C%20Safari%20%7C%20Firefox-4285F4)
 ![No backend](https://img.shields.io/badge/backend-none-success)
 
 **[Open the latest release →](https://misterpandapooh.github.io/whatsapp-media-reader/)**
@@ -60,7 +60,9 @@ npm run dev
 
 Then open the printed URL (usually `http://localhost:5173`).
 
-**Chrome, Edge, or another Chromium browser is required.** Safari and Firefox don't implement the file and directory pickers this depends on, and the app says so plainly rather than half-working.
+**Browser support.** Dropping a `.zip` — what WhatsApp actually gives you — works in **Chrome, Edge, Brave, Arc, Opera, Safari 15.2+ and Firefox 111+**. All the reader needs for that is the origin private file system, which all of them have.
+
+Opening an *already-unzipped folder* in place additionally needs the File System Access directory picker, which today only Chromium browsers implement; elsewhere that button is simply not shown. If a browser has no OPFS at all, the app says so plainly rather than half-working.
 
 > **Just want to look around?** Paste [`scripts/demo-seed.js`](scripts/demo-seed.js) into the DevTools console and reload. It loads an invented chat — made-up people, a written-out conversation, stock photographs — so you can try the whole thing without an export. It is also what produces the screenshots on this page.
 
@@ -68,7 +70,7 @@ Then open the printed URL (usually `http://localhost:5173`).
 
 In WhatsApp: open the chat → tap the chat name → **Export Chat** → **Attach Media**. You'll get a `.zip`.
 
-Drop that zip on the import screen. An already-unzipped folder works too — pick it with **Choose folder…** instead.
+Drop that zip on the import screen. In a Chromium browser an already-unzipped folder works too — pick it with **Choose folder…** instead.
 
 An export made *without* media still works: the messages and the timeline are all there, and the files that weren't included show as **Missing** tiles rather than disappearing.
 
@@ -91,7 +93,7 @@ It handles a big export without complaint: the zip is streamed one file at a tim
 - **Not a backup tool.** It reads an export you already have. It never writes to, moves or deletes it, and it can't fetch anything from WhatsApp itself.
 - **Not a chat client.** Read-only. You can't reply, and nothing syncs.
 - **Not multi-chat.** One export at a time; importing another replaces it.
-- **Not a phone app.** It needs the File System Access API, which means a Chromium desktop browser.
+- **Not a phone app.** It needs a desktop browser with the origin private file system; the pickers and drag-and-drop it relies on assume a real file manager.
 
 ## Commands
 

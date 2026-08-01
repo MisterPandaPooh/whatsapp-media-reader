@@ -59,6 +59,8 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
   const [saving, setSaving] = useState(false)
   const workerRef = useRef<Worker | null>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
+  // Read at render rather than module load so a test can stub the global.
+  const canPickFolder = typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function'
 
   // Never leave a worker running behind us (unmount, or a second import started).
   useEffect(() => {
@@ -288,7 +290,9 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
               secondary. Also gives the steps' own <h2> something to sit under. */}
           <h1 className="import-title import-title--drop">Drop your chat export here</h1>
           <div className="import-sub">
-            .zip archive, or a _chat.txt with its media folder. Everything is parsed locally — nothing is uploaded.
+            {canPickFolder
+              ? '.zip archive, or a _chat.txt with its media folder. Everything is parsed locally — nothing is uploaded.'
+              : '.zip archive — exactly what WhatsApp gives you. Everything is parsed locally, nothing is uploaded.'}
           </div>
           <div className="import-actions">
             <button
@@ -301,16 +305,22 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
             >
               Choose .zip…
             </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={(e) => {
-                e.stopPropagation()
-                void pickFolder()
-              }}
-            >
-              Choose folder…
-            </button>
+            {/* Opening a folder in place needs the File System Access directory
+                picker, which Safari and Firefox do not implement. Offering a
+                button that can only ever produce an error message is worse than
+                not offering it: the zip path works perfectly well there. */}
+            {canPickFolder && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void pickFolder()
+                }}
+              >
+                Choose folder…
+              </button>
+            )}
             {onCancel && (
               <button
                 type="button"

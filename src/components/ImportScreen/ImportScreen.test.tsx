@@ -194,3 +194,55 @@ describe('getting-the-export instructions on the drop screen', () => {
     expect(inputClick).not.toHaveBeenCalled()
   })
 })
+
+describe('browsers without the File System Access pickers', () => {
+  // Safari and Firefox implement OPFS but not showOpenFilePicker /
+  // showDirectoryPicker. Verified against WebKit: OPFS create, streamed write,
+  // unicode names, iteration and recursive remove all behave as in Chromium,
+  // both on the main thread and in a worker. So the zip import — the path
+  // almost everyone takes, since WhatsApp hands you a .zip — works there, and
+  // only the open-a-folder-in-place path genuinely cannot.
+  const realDirPicker = window.showDirectoryPicker
+  const realFilePicker = window.showOpenFilePicker
+
+  afterEach(() => {
+    if (realDirPicker) window.showDirectoryPicker = realDirPicker
+    else delete (window as { showDirectoryPicker?: unknown }).showDirectoryPicker
+    if (realFilePicker) window.showOpenFilePicker = realFilePicker
+    else delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
+  })
+
+  it('still offers zip import when no picker exists', () => {
+    delete (window as { showDirectoryPicker?: unknown }).showDirectoryPicker
+    delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Choose .zip…' })).toBeTruthy()
+  })
+
+  it('hides the folder button rather than offering one that can only fail', () => {
+    delete (window as { showDirectoryPicker?: unknown }).showDirectoryPicker
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    expect(screen.queryByRole('button', { name: 'Choose folder…' })).toBeNull()
+  })
+
+  it('offers the folder button where the picker does exist', () => {
+    window.showDirectoryPicker = vi.fn() as unknown as typeof window.showDirectoryPicker
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: 'Choose folder…' })).toBeTruthy()
+  })
+
+  it('falls back to the file input when showOpenFilePicker is absent', () => {
+    // Without this the primary button would be dead on Safari.
+    delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
+    render(<ImportScreen onOpen={vi.fn()} />)
+    const fileInput = document.querySelector('.import-file-input') as HTMLInputElement
+    const inputClick = vi.spyOn(fileInput, 'click')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose .zip…' }))
+
+    expect(inputClick).toHaveBeenCalledTimes(1)
+  })
+})

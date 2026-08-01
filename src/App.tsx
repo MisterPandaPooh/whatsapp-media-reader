@@ -20,13 +20,18 @@ import {
 import type { StoredChat } from './types'
 import './App.css'
 
-// Both are load-bearing: OPFS is where a dropped .zip is unpacked, and the
-// directory picker is the only way to open an unzipped export folder. Today
-// that combination means a Chromium browser.
-const SUPPORTED =
-  typeof window !== 'undefined' &&
-  typeof window.showDirectoryPicker === 'function' &&
-  typeof navigator.storage?.getDirectory === 'function'
+// The origin private file system is the one hard requirement: it is where a
+// dropped .zip is unpacked and where every thumbnail is read back from. A zip
+// needs nothing else — the file arrives through a plain <input type="file"> or a
+// drop event, both of which every browser has had for a decade.
+//
+// The File System Access *pickers* are a separate spec, and only the unzipped-
+// folder import depends on them. Requiring them here too used to shut Safari and
+// Firefox out of the app entirely, including the zip path — which is the path
+// almost everyone takes, since WhatsApp hands you a .zip. Verified against
+// WebKit: no pickers, but OPFS create/write/stream/iterate/remove all behave
+// exactly as they do in Chromium, on the main thread and inside a worker.
+const SUPPORTED = typeof window !== 'undefined' && typeof navigator.storage?.getDirectory === 'function'
 
 /**
  * How long to wait for IndexedDB before giving up and showing the import
@@ -321,11 +326,12 @@ export default function App() {
   if (!SUPPORTED) {
     return (
       <div className="unsupported">
-        <div className="unsupported-title">This reader needs a Chromium browser</div>
+        <div className="unsupported-title">This browser can’t store the export</div>
         <p>
-          It reads your export straight off disk using the File System Access API and the origin
-          private file system — Chrome, Edge, Brave, Arc and Opera support both today; Safari and
-          Firefox do not. Nothing is ever uploaded, which is precisely why it needs them.
+          The reader unpacks your chat into the origin private file system, a private area this
+          browser doesn’t provide. Chrome, Edge, Brave, Arc, Opera, Safari 15.2+ and Firefox 111+
+          all do. Nothing is ever uploaded, which is precisely why it needs somewhere local to put
+          the files.
         </p>
       </div>
     )
