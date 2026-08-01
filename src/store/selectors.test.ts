@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filteredMedia, threadWindow } from './selectors'
+import { extendThreadRange, filteredMedia, threadRange, threadWindow } from './selectors'
 import { EMPTY_FILTERS, type Filters } from './useChatStore'
 import type { MediaItem, Message } from '../types'
 
@@ -122,5 +122,83 @@ describe('threadWindow', () => {
 
   it('returns an empty array for an unknown anchor id', () => {
     expect(threadWindow(messages, 'nope')).toEqual([])
+  })
+})
+
+describe('threadRange', () => {
+  const messages: Message[] = Array.from({ length: 120 }, (_, i) => ({
+    id: `msg${i}`, sender: 'Ana', timestampMs: i, text: `line ${i}`, isSystemMessage: false,
+  }))
+
+  it('centres a ±50 window on the anchor', () => {
+    expect(threadRange(messages, 'msg60')).toEqual({ start: 10, end: 111 })
+  })
+
+  it('clamps at the start of the message list', () => {
+    expect(threadRange(messages, 'msg5')).toEqual({ start: 0, end: 56 })
+  })
+
+  it('clamps at the end of the message list', () => {
+    expect(threadRange(messages, 'msg115')).toEqual({ start: 65, end: 120 })
+  })
+
+  it('returns an empty range for an unknown anchor id', () => {
+    expect(threadRange(messages, 'nope')).toEqual({ start: 0, end: 0 })
+  })
+
+  it('agrees with threadWindow, which is the same slice', () => {
+    const r = threadRange(messages, 'msg60')
+    expect(messages.slice(r.start, r.end)).toEqual(threadWindow(messages, 'msg60'))
+  })
+})
+
+describe('extendThreadRange', () => {
+  // The window only ever grows, and only in the direction the reader is going —
+  // extending both ends at once would double the work and pull the far edge of
+  // the conversation in for no reason.
+  it('extends backwards by one chunk without moving the far edge', () => {
+    expect(extendThreadRange({ start: 200, end: 301 }, 'before', 500)).toEqual({
+      start: 150,
+      end: 301,
+    })
+  })
+
+  it('extends forwards by one chunk without moving the near edge', () => {
+    expect(extendThreadRange({ start: 200, end: 301 }, 'after', 500)).toEqual({
+      start: 200,
+      end: 351,
+    })
+  })
+
+  it('clamps a backwards extension at the first message', () => {
+    expect(extendThreadRange({ start: 20, end: 121 }, 'before', 500)).toEqual({
+      start: 0,
+      end: 121,
+    })
+  })
+
+  it('clamps a forwards extension at the last message', () => {
+    expect(extendThreadRange({ start: 380, end: 481 }, 'after', 500)).toEqual({
+      start: 380,
+      end: 500,
+    })
+  })
+
+  // Identity, not just equality: MessageThread's scroll compensation and the
+  // re-centre guard both key off the window array changing. A no-op extension
+  // at message 0 that still produced a fresh object would re-render the thread
+  // forever — scroll to top, expand by nothing, scroll event, expand again.
+  it('returns the very same object when there is nothing left to add', () => {
+    const atStart = { start: 0, end: 101 }
+    expect(extendThreadRange(atStart, 'before', 500)).toBe(atStart)
+    const atEnd = { start: 399, end: 500 }
+    expect(extendThreadRange(atEnd, 'after', 500)).toBe(atEnd)
+  })
+
+  it('honours a custom chunk size', () => {
+    expect(extendThreadRange({ start: 200, end: 301 }, 'before', 500, 10)).toEqual({
+      start: 190,
+      end: 301,
+    })
   })
 })

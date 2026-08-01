@@ -151,6 +151,10 @@
   background: var(--bg);
   min-height: 0;
   overscroll-behavior: contain;
+  /* Infinite scroll corrects scrollTop itself when a chunk is prepended (see
+     MessageThread). The browser's own scroll anchoring would try to do the same
+     job from a different reference point and the two corrections would stack. */
+  overflow-anchor: none;
 }
 .thread-scroll:focus-visible {
   outline: 2px solid var(--accent);
@@ -180,6 +184,20 @@
   top: 0;
   left: 0;
   width: 100%;
+}
+
+/* Only shown once the window really has reached message 1 of the export, so
+   the reader can tell "nothing more" from "not loaded yet". Deliberately
+   quieter than a day separator — it is a boundary, not a heading. */
+.thread-start {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+.thread-start span {
+  font: 400 9.5px var(--font-mono);
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
 }
 
 .day-sep {
@@ -303,6 +321,77 @@
   font: 400 10.5px var(--font-mono);
   color: var(--text-tertiary);
   overflow-wrap: anywhere;
+}
+/* Every preview box is exactly this tall, loaded or not. The thread is
+   virtualized with dynamic row measurement, so a preview that grew when its
+   image decoded would re-measure its row and shove everything below it — under
+   the reader's cursor, mid-scroll. Reserving the space up front is what keeps
+   scrolling stable. */
+.bubble-media {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 168px;
+  margin-bottom: 4px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #e4e2dd;
+}
+.bubble-media--button {
+  cursor: pointer;
+  appearance: none;
+}
+.bubble-media--button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.bubble-media-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bubble-media-placeholder {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, #e4e2dd 0 7px, #d6d3cd 7px 14px);
+}
+/* Play affordance for video, so a still frame is not mistaken for a photo. */
+.bubble-media-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+}
+.bubble-media-play::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 11px;
+  border-left: 11px solid #fff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+}
+.bubble-voice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+.bubble-audio,
+.bubble-audio-placeholder {
+  width: 100%;
+  height: 34px;
+}
+.bubble-audio-placeholder {
+  border-radius: 17px;
+  background: rgba(0, 0, 0, 0.05);
 }
 .bubble-text {
   font: 400 12px/1.45 var(--font-sans);

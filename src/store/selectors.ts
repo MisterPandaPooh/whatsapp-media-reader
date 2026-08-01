@@ -43,10 +43,66 @@ export function filteredMedia(media: MediaItem[], filters: Filters): MediaItem[]
     .map((entry) => entry.item)
 }
 
-export function threadWindow(messages: Message[], anchorId: string, radius = 50): Message[] {
+/** How many messages either side of the anchor the detail panel opens on. */
+export const THREAD_RADIUS = 50
+/** How many more it pulls in each time the reader scrolls off an edge. */
+export const THREAD_CHUNK = 50
+
+/** A half-open `[start, end)` slice of the chat's full `messages` array. */
+export interface ThreadRange {
+  start: number
+  end: number
+}
+
+/**
+ * The window the panel opens on: the anchor message plus `radius` either side.
+ *
+ * Returned as indices rather than the slice itself because the panel now grows
+ * this window as the reader scrolls (see `extendThreadRange`), and growing it
+ * has to be a cheap arithmetic step. The `findIndex` here scans the whole
+ * parsed array — six figures long for a real export — so it must run once per
+ * anchor, not once per extension and certainly not once per render.
+ */
+export function threadRange(
+  messages: Message[],
+  anchorId: string,
+  radius = THREAD_RADIUS,
+): ThreadRange {
   const index = messages.findIndex((m) => m.id === anchorId)
-  if (index === -1) return []
-  const start = Math.max(0, index - radius)
-  const end = Math.min(messages.length, index + radius + 1)
+  if (index === -1) return { start: 0, end: 0 }
+  return {
+    start: Math.max(0, index - radius),
+    end: Math.min(messages.length, index + radius + 1),
+  }
+}
+
+/**
+ * Grows the window by one chunk in the direction the reader is travelling.
+ *
+ * Only that direction: extending both ends would pull in messages nobody asked
+ * for and double the prepend the scroll compensation has to cancel out.
+ *
+ * Returns the *identical* object when the chunk would be empty — the window
+ * already reaches message 0 or the end of the chat. MessageThread treats a new
+ * window array as "content moved, correct the scroll", so a fresh-but-equal
+ * range at the ends would spin: scroll to top, extend by nothing, re-render,
+ * scroll event, extend by nothing…
+ */
+export function extendThreadRange(
+  range: ThreadRange,
+  direction: 'before' | 'after',
+  total: number,
+  chunk = THREAD_CHUNK,
+): ThreadRange {
+  if (direction === 'before') {
+    const start = Math.max(0, range.start - chunk)
+    return start === range.start ? range : { start, end: range.end }
+  }
+  const end = Math.min(total, range.end + chunk)
+  return end === range.end ? range : { start: range.start, end }
+}
+
+export function threadWindow(messages: Message[], anchorId: string, radius = THREAD_RADIUS): Message[] {
+  const { start, end } = threadRange(messages, anchorId, radius)
   return messages.slice(start, end)
 }

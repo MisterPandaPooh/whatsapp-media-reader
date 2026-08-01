@@ -111,6 +111,49 @@ describe('MessageThread attachment rendering', () => {
     expect(document.querySelector('.bubble-attach')).toBeNull()
   })
 
+  it('keeps day separators correct at a seam where a prepended chunk joins', () => {
+    // Before the extension the window's first message has no predecessor, so it
+    // gets a separator by default. After earlier messages are prepended it has
+    // one — from the same day — and the separator must move to the new first
+    // message rather than being drawn twice.
+    const day1 = Date.UTC(2025, 2, 9, 8, 0)
+    const all = [
+      message({ id: 'a1', timestampMs: day1, text: 'a1' }),
+      message({ id: 'a2', timestampMs: day1 + 60_000, text: 'a2' }),
+      message({ id: 'b1', timestampMs: day1 + 26 * 3600_000, text: 'b1' }),
+      message({ id: 'b2', timestampMs: day1 + 26 * 3600_000 + 60_000, text: 'b2' }),
+    ]
+    const { rerender } = renderThread(all.slice(2), [])
+    expect(document.querySelectorAll('.day-sep')).toHaveLength(1)
+
+    rerender(
+      <MessageThread messages={all} anchorId="b1" meParticipant={null} mediaById={new Map()} />,
+    )
+    const seps = document.querySelectorAll('.day-sep')
+    expect(seps).toHaveLength(2)
+    // One for a1's day, one for b1's — and none stranded on a2 or b2.
+    const rowsWithSep = Array.from(document.querySelectorAll('.thread-row'))
+      .map((row, i) => (row.querySelector('.day-sep') ? i : -1))
+      .filter((i) => i >= 0)
+    expect(rowsWithSep).toEqual([0, 2])
+  })
+
+  it('shows a start-of-conversation marker only once the first message is in the window', () => {
+    const props = {
+      messages: [message({ text: 'hi' })],
+      anchorId: 'm1',
+      meParticipant: null,
+      onExtendBefore: () => {},
+    }
+    const { rerender } = render(<MessageThread {...props} hasMoreBefore />)
+    expect(document.querySelector('.thread-start')).toBeNull()
+
+    rerender(<MessageThread {...props} hasMoreBefore={false} />)
+    expect(document.querySelector('.thread-start')).not.toBeNull()
+    // Understated: a label, not a bubble, and it must not disturb the messages.
+    expect(bubbleTexts()).toEqual(['hi'])
+  })
+
   it('shows no raw attachment marker anywhere for a real parsed export', () => {
     // End to end across the two halves of the fix: the parser strips the marker
     // out of Message.text, and the thread substitutes a chip for it.

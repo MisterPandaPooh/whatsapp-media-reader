@@ -1,8 +1,8 @@
 // src/components/Panel/DetailPanel.tsx
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useChatStore } from '../../store/useChatStore'
-import { threadWindow } from '../../store/selectors'
+import { extendThreadRange, threadRange } from '../../store/selectors'
 import { readMediaFile } from '../../storage/fileAccess'
 import { MessageThread, type MessageThreadHandle } from './MessageThread'
 import type { MediaItem, Message, StorageRef } from '../../types'
@@ -71,13 +71,38 @@ export function DetailPanel({
   }, [])
 
   const position = filteredIds.indexOf(activeItem.id)
-  // threadWindow scans the whole parsed messages array, which can be six
-  // figures long; without this the scan reruns on every parent re-render (e.g.
-  // every search keystroke) and hands MessageThread a fresh array identity,
-  // which would also re-trigger its scroll effect.
+
+  // The infinite-scroll window lives here rather than in MessageThread because
+  // this is where the chat's *whole* messages array already is, along with the
+  // memoisation that keeps a six-figure scan off the render path. MessageThread
+  // stays what it was: a view over a slice, which is also what keeps its scroll
+  // container the only thing it owns.
+  //
+  // Reset-on-anchor-change is done with the "adjust state during render"
+  // pattern rather than an effect. An effect would render one frame of the old
+  // item's window under the new item's anchor — MessageThread would centre on
+  // an anchor that is not there yet, then be told to centre again.
+  const [range, setRange] = useState(() => threadRange(messages, activeItem.anchorMessageId))
+  const [rangeFor, setRangeFor] = useState({ messages, anchorId: activeItem.anchorMessageId })
+  if (rangeFor.messages !== messages || rangeFor.anchorId !== activeItem.anchorMessageId) {
+    setRangeFor({ messages, anchorId: activeItem.anchorMessageId })
+    setRange(threadRange(messages, activeItem.anchorMessageId))
+  }
+
+  // Slicing is cheap; the scan that produced `range` is not. Memoised so the
+  // panel's other re-renders (every search keystroke reaches here) hand
+  // MessageThread the same array identity and leave its scroll position alone.
   const messageWindow = useMemo(
-    () => threadWindow(messages, activeItem.anchorMessageId),
-    [messages, activeItem.anchorMessageId],
+    () => messages.slice(range.start, range.end),
+    [messages, range],
+  )
+  const extendBefore = useCallback(
+    () => setRange((r) => extendThreadRange(r, 'before', messages.length)),
+    [messages.length],
+  )
+  const extendAfter = useCallback(
+    () => setRange((r) => extendThreadRange(r, 'after', messages.length)),
+    [messages.length],
   )
   // Built once per chat rather than per render: `allMedia` can be six figures
   // long, and the panel re-renders on every search keystroke.
@@ -270,6 +295,12 @@ export function DetailPanel({
         anchorId={activeItem.anchorMessageId}
         meParticipant={meParticipant}
         mediaById={mediaById}
+        storageRef={storageRef}
+        onOpenMedia={openMedia}
+        hasMoreBefore={range.start > 0}
+        hasMoreAfter={range.end < messages.length}
+        onExtendBefore={extendBefore}
+        onExtendAfter={extendAfter}
       />
     </aside>
   )
