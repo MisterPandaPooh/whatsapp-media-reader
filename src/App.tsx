@@ -473,18 +473,13 @@ export default function App() {
                 ? `${formatBytes(usage.usage)} used${usage.quota > 0 ? ` of ${formatBytes(usage.quota)} available` : ''}.`
                 : 'This browser will not report how much it is using.'}{' '}
               {chat.storageRef.kind === 'opfs'
-                ? 'A .zip import is unpacked into browser storage, so this chat is a second copy of the export. Importing the unzipped folder instead uses none — the reader just reads your own files where they are.'
-                : 'This chat is read straight from the folder on your disk and uses none of it.'}
-              {usage && !usage.persisted
-                ? ' The browser has not marked this data as persistent, so it may still be cleared if the disk fills up.'
-                : ''}
+                ? 'A .zip is unpacked here, so this chat is a second copy. Importing the unzipped folder instead uses none.'
+                : 'This chat is read from your own folder and uses none of it.'}
+              {usage && !usage.persisted ? ' The browser may clear this if the disk fills up.' : ''}
             </div>
             <div className="import-sub">
-              Freeing up space only removes leftovers from imports that were never opened — a
-              tab closed while a .zip was still unpacking, or an import abandoned at the summary
-              screen. The chat you have open is kept, and the .zip or folder it came from is
-              never touched: the reader only ever reads your files, it does not write to or
-              delete them.
+              Only leftovers from unfinished imports are removed. Your open chat stays, and your
+              original .zip or folder is never touched.
             </div>
             <div className="import-actions">
               <button
