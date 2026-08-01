@@ -5,6 +5,7 @@ import type { ImportProgress, ParsedChat, StorageRef, StoredChat } from '../../t
 import type { ImportRequest, ImportResponse } from '../../worker/importWorker'
 import { saveChat } from '../../storage/chatRepository'
 import { PARSER_VERSION } from '../../parser/version'
+import { ExportSteps } from './ExportSteps'
 import { discardStorage } from '../../storage/fileAccess'
 import './ImportScreen.css'
 
@@ -329,36 +330,7 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
           {/* Nobody arrives here already holding an export — the file has to be made
               inside WhatsApp first, on a phone, and that is not a step anyone guesses.
               Without this the drop zone is a dead end for a first-time visitor. */}
-          <div className="import-steps">
-            <h2 className="import-steps-title">Don’t have the file yet?</h2>
-            <ol className="import-steps-list">
-              <li>Open the chat you want on your phone, in WhatsApp.</li>
-              <li>
-                Tap the chat’s name at the top, scroll down, and choose <b>Export chat</b>.
-              </li>
-              <li>
-                Pick <b>Attach media</b>. Choosing “Without media” gives you the messages but none
-                of the photos.
-              </li>
-              <li>Send the file to yourself — by email, or into Drive, or AirDrop.</li>
-              <li>Save it on this computer, then drop it above.</li>
-            </ol>
-            <a
-              className="import-steps-link"
-              href="https://faq.whatsapp.com/1180414079177245/"
-              target="_blank"
-              rel="noopener noreferrer"
-              // The whole card is a click target for the file picker; without this,
-              // following the link would also pop open a file dialog behind it.
-              onClick={(e) => e.stopPropagation()}
-            >
-              WhatsApp’s own instructions, with screenshots
-            </a>
-            <p className="import-steps-note">
-              A long chat can take a few minutes to export, and WhatsApp may split very large ones.
-              Nothing you drop here is uploaded — it is read on this computer and stays here.
-            </p>
-          </div>
+          <ExportSteps />
           <input
             ref={zipInputRef}
             type="file"

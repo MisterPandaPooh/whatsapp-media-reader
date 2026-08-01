@@ -153,12 +153,23 @@ describe('getting-the-export instructions on the drop screen', () => {
 
     const steps = screen.getAllByRole('listitem').map((li) => li.textContent ?? '')
 
-    expect(steps).toHaveLength(5)
+    expect(steps).toHaveLength(3)
     expect(steps[0]).toMatch(/WhatsApp/i)
-    expect(steps[1]).toMatch(/Export chat/i)
+    expect(steps[0]).toMatch(/Export chat/i)
     // The media choice is the one that silently ruins an export, so it must be
     // called out rather than left to the WhatsApp defaults.
-    expect(steps[2]).toMatch(/Attach media/i)
+    expect(steps[1]).toMatch(/Attach media/i)
+    expect(steps[2]).toMatch(/drop it above/i)
+  })
+
+  it('leaves the drawings out of the accessibility tree', () => {
+    // The pictures restate the words beside them; announcing them twice would
+    // just make the screen longer to listen to.
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    const arts = document.querySelectorAll('.step-art')
+    expect(arts.length).toBe(3)
+    for (const art of arts) expect(art.getAttribute('aria-hidden')).toBe('true')
   })
 
   it('links out to WhatsApp`s own help page, safely', () => {
