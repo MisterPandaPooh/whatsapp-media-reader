@@ -246,3 +246,93 @@ describe('browsers without the File System Access pickers', () => {
     expect(inputClick).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('the demo chat', () => {
+  const demoButton = () => screen.getByRole('button', { name: 'Open the demo chat' })
+
+  /** A Worker that never answers, so the test observes the fetch and stops. */
+  function stubWorker() {
+    const posted: unknown[] = []
+    class Silent {
+      onmessage: unknown = null
+      onerror: unknown = null
+      postMessage(msg: unknown) {
+        posted.push(msg)
+      }
+      terminate() {}
+    }
+    vi.stubGlobal('Worker', Silent)
+    return posted
+  }
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('reads the archive through BASE_URL, not from the site root', async () => {
+    // The hosted build lives under a repository subpath. An absolute
+    // "/demo/casa-verde.zip" works in dev and 404s in production, which is
+    // exactly the sort of break nobody sees until it is live.
+    stubWorker()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-length': '4' }),
+      body: {
+        getReader: () => {
+          let sent = false
+          return {
+            read: async () =>
+              sent ? { done: true } : ((sent = true), { done: false, value: new Uint8Array([1, 2, 3, 4]) }),
+          }
+        },
+      },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    await act(async () => {
+      fireEvent.click(demoButton())
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(`${import.meta.env.BASE_URL}demo/casa-verde.zip`)
+  })
+
+  it('hands the archive to the ordinary import, not a special path', async () => {
+    const posted = stubWorker()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers(),
+        body: {
+          getReader: () => {
+            let sent = false
+            return {
+              read: async () =>
+                sent ? { done: true } : ((sent = true), { done: false, value: new Uint8Array([1]) }),
+            }
+          },
+        },
+      }),
+    )
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    await act(async () => {
+      fireEvent.click(demoButton())
+    })
+
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect((posted[0] as { kind: string }).kind).toBe('zip')
+  })
+
+  it('says so and goes back rather than hanging when the archive is missing', async () => {
+    stubWorker()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, body: null }))
+    render(<ImportScreen onOpen={vi.fn()} />)
+
+    await act(async () => {
+      fireEvent.click(demoButton())
+    })
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/demo chat could not be loaded/))
+    expect(demoButton()).toBeTruthy()
+  })
+})

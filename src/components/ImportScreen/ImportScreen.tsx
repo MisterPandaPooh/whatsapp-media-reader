@@ -45,6 +45,9 @@ function makeChatId(title: string): string {
   return `${safe}-${Date.now()}`
 }
 
+/** Named so it is obvious in the header that this is not the reader's own chat. */
+const DEMO_TITLE = 'Casa Verde ☀️ (demo)'
+
 function titleFromZipName(name: string): string {
   return name.replace(/\.zip$/i, '')
 }
@@ -167,6 +170,49 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
     // is read one 1MB slice at a time, inside the worker, and a read that fails
     // partway surfaces as a normal import error.
     runImport({ kind: 'zip', file, title: titleFromZipName(file.name) })
+  }
+
+  /**
+   * The demo chat that ships with the app: an invented three-year group chat,
+   * built by scripts/make-demo-export.mjs and committed as a real .zip. It goes
+   * through exactly the same import as a file the user picked — no seeded
+   * storage, no special case downstream — so what a visitor sees is the app
+   * working, not a mock of it.
+   *
+   * Read through BASE_URL because the hosted build lives under a repository
+   * subpath; an absolute "/demo/…" would 404 there and work only in dev.
+   */
+  async function openDemo() {
+    setError(null)
+    setProgress({ stage: 'reading', progress: 0 })
+    setScreen('parsing')
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}demo/casa-verde.zip`)
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+      // Streamed rather than awaited whole, so the progress bar moves during
+      // the download instead of sitting at zero for the first few seconds.
+      const total = Number(res.headers.get('content-length')) || 0
+      const reader = res.body.getReader()
+      const chunks: Uint8Array[] = []
+      let received = 0
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+        received += value.length
+        if (total) setProgress({ stage: 'reading', progress: Math.round((received / total) * 90) })
+      }
+      runImport({
+        kind: 'zip',
+        file: new Blob(chunks as BlobPart[], { type: 'application/zip' }),
+        title: DEMO_TITLE,
+      })
+    } catch (err) {
+      setError(
+        `The demo chat could not be loaded: ${err instanceof Error ? err.message : String(err)}. Your own export will still work — drop it above.`,
+      )
+      setScreen('drop')
+    }
   }
 
   /** File System Access pickers reject with AbortError when the user cancels; anything else is a real failure. */
@@ -337,6 +383,29 @@ export function ImportScreen({ onOpen, onCancel, notice }: Props) {
               {error}
             </div>
           )}
+
+          {/* Its own row rather than a third button beside the other two. Those
+              two are one choice wearing two hats — "give me your file" — and
+              this is the way in for someone who has not got one. Equal weight
+              would read as three equal options, which they are not. */}
+          <div className="import-demo">
+            <div className="import-demo-copy">
+              <strong>No export handy?</strong>
+              <span>Open a made-up chat: 260 photos, 8 people, three years.</span>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary import-demo-btn"
+              onClick={(e) => {
+                // The whole card is a click target for the file picker.
+                e.stopPropagation()
+                void openDemo()
+              }}
+            >
+              Open the demo chat
+            </button>
+          </div>
+
           {/* Nobody arrives here already holding an export — the file has to be made
               inside WhatsApp first, on a phone, and that is not a step anyone guesses.
               Without this the drop zone is a dead end for a first-time visitor. */}

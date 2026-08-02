@@ -11,7 +11,9 @@ You browse what was sent, and use any file as a way back into its moment in the 
 ![Runs in the browser](https://img.shields.io/badge/browser-Chrome%20%7C%20Edge%20%7C%20Safari%20%7C%20Firefox-4285F4)
 ![No backend](https://img.shields.io/badge/backend-none-success)
 
-**[Open the latest release →](https://misterpandapooh.github.io/whatsapp-media-reader/)**
+**[Open the demo →](https://misterpandapooh.github.io/whatsapp-media-reader/)**
+
+No export needed — there is a made-up chat waiting inside.
 
 </div>
 
@@ -51,7 +53,7 @@ It's also read-only. It never writes to, moves, or deletes your export.
 
 ## Running it
 
-The [hosted build](https://misterpandapooh.github.io/whatsapp-media-reader/) is the latest release and needs no install — it is the same static app, and your export still never leaves your machine. To run it locally:
+The [hosted build](https://misterpandapooh.github.io/whatsapp-media-reader/) is the latest release and needs no install — it is the same static app, and your export still never leaves your machine. **Open the demo chat** on the drop screen fills it with an invented three-year group chat (260 photos, 8 people) if you have not got an export to hand. To run it locally:
 
 ```bash
 npm install

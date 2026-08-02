@@ -6,8 +6,9 @@
 // the photos come from Lorem Picsum, which serves Unsplash-licensed images, so
 // the result is free to put in a screen recording.
 //
-//   node scripts/make-demo-export.mjs            # ~950 photos, the full run
-//   node scripts/make-demo-export.mjs --photos 120   # a quick one
+//   node scripts/make-demo-export.mjs               # ~950 photos, the full run
+//   node scripts/make-demo-export.mjs --photos 120  # a quick one
+//   node scripts/make-demo-export.mjs --bundle      # the one the app ships
 //
 // Output lands in demo-export/ (gitignored — it is ~100 MB and must never be
 // committed). The run is deterministic: same arguments, same library.
@@ -25,7 +26,9 @@ import { zipSync } from 'fflate'
 
 const run = promisify(execFile)
 
-const OUT_ROOT = 'demo-export'
+// `--bundle` stages in its own directory: it deletes its workspace when it is
+// done, and it must not be the workspace holding the full recording export.
+const OUT_ROOT = process.argv.includes('--bundle') ? 'demo-export-bundle' : 'demo-export'
 const CHAT_TITLE = 'Casa Verde ☀️'
 const FOLDER = `WhatsApp Chat - ${CHAT_TITLE}`
 
@@ -956,7 +959,18 @@ async function fetchPhoto(seed, width, height) {
 
 // ── Build ────────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2)
-const photoBudget = Number(args[args.indexOf('--photos') + 1]) || 950
+
+/**
+ * `--bundle` builds the copy that ships inside the app, behind "Open the demo
+ * chat" on the import screen. It is committed, so it is a different animal from
+ * the recording export: small enough to sit in a git repository and to download
+ * over a phone connection, while still filling the grid and spanning three
+ * years. Smaller photographs and a third of the count get that to ~15 MB.
+ */
+const bundle = args.includes('--bundle')
+const BUNDLE_PATH = 'public/demo/casa-verde.zip'
+const photoBudget = Number(args[args.indexOf('--photos') + 1]) || (bundle ? 260 : 950)
+const photoSize = bundle ? { long: 800, short: 560 } : { long: 1200, short: 900 }
 
 const totalWeight = SCENES.reduce((n, s) => n + s.weight, 0)
 const scale = photoBudget / totalWeight
@@ -992,7 +1006,7 @@ for (const scene of SCENES) {
     const [leadSender, leadCaption] = scene.lead
     const { fileStamp } = stamp(scene.date, time)
     const name = nextName('PHOTO', 'jpg', fileStamp)
-    files.push({ name, kind: 'photo', seed: `${scene.date}-lead`, w: 1200, h: 800 })
+    files.push({ name, kind: 'photo', seed: `${scene.date}-lead`, w: photoSize.long, h: Math.round(photoSize.long * 0.67) })
     attach(date, time, leadSender, name, leadCaption)
     time = addSeconds(time, 30 + Math.floor(rand() * 60))
   }
@@ -1037,8 +1051,8 @@ for (const scene of SCENES) {
     const sender = pick(cast)
     // Portrait and landscape mixed, so the grid is not a wall of identical crops.
     const portrait = chance(0.42)
-    const w = portrait ? 900 : 1200
-    const h = portrait ? 1200 : 800
+    const w = portrait ? photoSize.short : photoSize.long
+    const h = portrait ? photoSize.long : Math.round(photoSize.long * 0.67)
     const { fileStamp } = stamp(scene.date, time)
     const name = nextName('PHOTO', 'jpg', fileStamp)
     files.push({ name, kind: 'photo', seed: `${scene.date}-${i}`, w, h })
@@ -1151,11 +1165,21 @@ for (const name of await readdir(outDir)) {
 }
 // level 0: JPEG and AAC are already compressed, so deflating them costs minutes
 // and saves nothing.
-await writeFile(join(OUT_ROOT, `${FOLDER}.zip`), Buffer.from(zipSync(entries, { level: 0 })))
-
+const archive = Buffer.from(zipSync(entries, { level: 0 }))
 const bytes = Object.values(entries).reduce((n, b) => n + b.length, 0)
-console.log(`\nWrote ${OUT_ROOT}/`)
-console.log(`  ${FOLDER}/        the unzipped export (folder import)`)
-console.log(`  ${FOLDER}.zip     the same thing zipped (drag-and-drop import)`)
-console.log(`  ${(bytes / 1024 / 1024).toFixed(1)} MB, ${Object.keys(entries).length} files`)
+
+if (bundle) {
+  await mkdir('public/demo', { recursive: true })
+  await writeFile(BUNDLE_PATH, archive)
+  await rm(OUT_ROOT, { recursive: true, force: true })
+  console.log(`\nWrote ${BUNDLE_PATH}`)
+  console.log(`  ${(archive.length / 1024 / 1024).toFixed(1)} MB, ${Object.keys(entries).length} files`)
+  console.log('  This one is committed — it is what "Open the demo chat" downloads.')
+} else {
+  await writeFile(join(OUT_ROOT, `${FOLDER}.zip`), archive)
+  console.log(`\nWrote ${OUT_ROOT}/`)
+  console.log(`  ${FOLDER}/        the unzipped export (folder import)`)
+  console.log(`  ${FOLDER}.zip     the same thing zipped (drag-and-drop import)`)
+  console.log(`  ${(bytes / 1024 / 1024).toFixed(1)} MB, ${Object.keys(entries).length} files`)
+}
 if (failed) console.log(`  ${failed} photos could not be fetched and will show as Missing tiles`)

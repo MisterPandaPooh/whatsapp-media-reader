@@ -177,3 +177,44 @@
   border-top: 1px solid var(--border);
   color: var(--text-primary);
 }
+
+/* The way in for someone with no export. Set apart from the two file buttons
+   above it — a tinted strip rather than a third button in the same row — so the
+   screen reads as one choice with a fallback, not three equal options. */
+.import-demo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfbfa;
+}
+.import-demo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.import-demo-copy strong {
+  font: 600 12px var(--font-sans);
+  color: var(--text-primary);
+}
+.import-demo-copy span {
+  font: 400 11px/1.45 var(--font-mono);
+  color: var(--text-secondary);
+}
+.import-demo-btn {
+  flex: none;
+}
+
+/* Under ~420px the strip stacks rather than squeezing the button to nothing. */
+@media (max-width: 440px) {
+  .import-demo {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+  }
+}

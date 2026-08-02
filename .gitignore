@@ -28,3 +28,4 @@ dist-ssr
 
 # Generated demo export (scripts/make-demo-export.mjs) — ~100 MB, never committed
 demo-export/
+demo-export-bundle/
