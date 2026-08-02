@@ -92,6 +92,156 @@ const REACTIONS = [
   'you can see me planning my escape',
   'ten out of ten, no notes',
   'saving this forever',
+  'I am blinking in every single one of these',
+  'this is evidence and I want it destroyed',
+  'my lawyer will be in touch',
+  'nobody has ever looked worse in better light',
+  'that is not my good side. I do not have a good side',
+  'the audacity of this photograph',
+  'I was mid sentence!!',
+  'you had ONE job and it was to warn me',
+  'ok whoever is holding the camera, congratulations, you have ruined me',
+  'why is Théo like that',
+  'why is Théo ALWAYS like that',
+  'genuinely who invited the photographer',
+  'nobody invited me either and I am still here',
+  'I look like a man who has made several bad decisions',
+  'you ARE a man who has made several bad decisions',
+  'the dog is more photogenic than all of us combined',
+  'that is not a dog',
+  'even better',
+  'I am zooming in and I regret it',
+  'do not zoom in',
+  'too late',
+  'someone was clearly holding the camera with their feet',
+  'in my defence, I was',
+  'this photo has no business being this good',
+  'this photo has no business existing',
+  'delete. delete. deleeete.',
+  'archived. treasured. never shown to anyone.',
+  'ok but the plate of food behind me is the real star',
+  'the food was the only one of us behaving',
+  'I have zoomed in on that sandwich four times now',
+  'that is not a sandwich, that is architecture',
+  'you can see the exact moment I gave up',
+  'I count three people pretending to laugh',
+  'four. Marcus is very committed.',
+  'this is going in the group chat hall of fame',
+  'the group chat hall of fame is just this group chat',
+  'correct',
+  'sending this to my mother',
+  'do NOT send that to your mother',
+  'already sent',
+  'ok fine that one is quite good',
+  'high praise from you, we will take it',
+  'unbelievable framing. unbelievable subject. terrible person holding it.',
+  'that is my hand!! that is my hand in the corner!!',
+  'and it is the best part of the photo',
+]
+
+/**
+ * Short exchanges dropped between photos. A group chat is mostly people talking
+ * *around* the pictures, so without these the transcript reads as a slideshow
+ * with a caption track rather than a conversation with photos in it.
+ *
+ * Each line is spoken by a different member of that day's cast, so the same
+ * exchange lands differently every time it comes up.
+ */
+const BANTER = [
+  ['who is bringing bread', 'I thought you were bringing bread', 'nobody is bringing bread', 'I am turning the car around'],
+  ['what time is dinner', '8', 'so 9', 'so 9.'],
+  ['has anyone seen my sunglasses', 'they are on your head', 'they are not on my head', 'they are on your head'],
+  ['I am 20 minutes away', 'you said that 40 minutes ago', 'and I meant it both times'],
+  ['can someone put the kettle on', 'the kettle has been on for an hour', 'then can someone find the kettle'],
+  ['it is 34 degrees', 'in the shade?', 'there is no shade. that is the problem.'],
+  ['who ate the last of the tart', 'not me', 'not me', 'it was me and I would do it again'],
+  ['is the wifi password still the same', 'it is still the dog', 'we do not have a dog', 'it is still the dog'],
+  ['I am making coffee, hands up', 'four', 'five', 'six', 'I am making one coffee.'],
+  ['someone is snoring', 'that is the boiler', 'the boiler is not in my room'],
+  ['ok who moved the good chair', 'there is no good chair', 'there is exactly one good chair and you are in it'],
+  ['I found the fairy lights', 'tangled?', 'obviously tangled', 'that is 40 minutes of our evening gone'],
+  ['do we need more ice', 'we always need more ice', 'we have never once had enough ice'],
+  ['reminder that the shower takes 3 minutes to warm up', 'you tell us this every year', 'and every year someone screams'],
+  ['is that thunder', 'no', 'that was definitely thunder', 'ok that was thunder'],
+  ['whose turn is it to cook', 'yours', 'I cooked yesterday', 'yesterday was toast'],
+  ['toast is cooking', 'toast is not cooking', 'toast is assembly at best'],
+  ['I have made a spreadsheet', 'absolutely not', 'it is colour coded', 'ABSOLUTELY NOT'],
+  ['the bakery closes at 1 by the way', 'it is 12:52', 'RUN'],
+  ['who is driving back tomorrow', 'not the person who opened the second bottle', 'that narrows it to nobody'],
+  ['it says 40 minutes on foot', 'that is 40 minutes for a normal person', 'we are not normal people'],
+  ['we are 90 minutes in', 'we are not lost', 'we are extremely lost'],
+  ['I packed light this time', 'you brought a second bag for shoes', 'that IS light'],
+  ['does anyone know how the oven works', 'no', 'we have used it for three years'],
+  ['are we doing presents this year', 'we said no presents', 'I have already bought presents', 'so did I', 'so we are doing presents'],
+  ['I am not saying I told you so', 'you are typing it though', 'I am typing it slowly for effect'],
+  ['my phone is at 4%', 'plug it in', 'someone has taken the good cable', 'the good cable is a myth'],
+  ['there is a wasp', 'there is one wasp', 'there is one wasp and eight adults screaming'],
+  ['who is the earliest riser', 'not me', 'not me', 'the birds. it is the birds.'],
+  ['can we talk about the towels', 'no', 'we are going to talk about the towels'],
+  ['I am starting a list of house rules', 'rule one: no lists', 'noted, ignored'],
+  ['it is objectively too early for this', 'it is 11am', 'objectively too early'],
+  ['I have been awake since 5', 'why', 'the birds. it is always the birds.'],
+  ['nobody panic but I have lost a shoe', 'how do you lose one shoe', 'with real commitment'],
+  ['ok final answer, what are we eating', 'whatever is nearest', 'that is a petrol station', 'final answer'],
+]
+
+/**
+ * Captions any day can use, drawn once a scene's own pool runs out. A day now
+ * carries about forty photographs and no hand-written list is forty entries
+ * long, so without these the back half of every burst is bare image bubbles —
+ * which is exactly what the reader exists to avoid showing.
+ */
+const GENERIC_CAPTIONS = [
+  'exhibit A',
+  'exhibit B, somehow worse',
+  'no context. none. deal with it.',
+  'this is what 11am looks like here',
+  'I was told there would be a warning',
+  'action shot (nothing is happening)',
+  'the calm before whatever this was',
+  'unedited, unposed, unforgivable',
+  'candid, allegedly',
+  'someone said cheese and we all ignored them',
+  'the only one where everyone is looking',
+  'the only one where nobody is looking',
+  'this took eleven attempts',
+  'attempt one of eleven',
+  'attempt eleven of eleven, still bad',
+  'the light was doing that thing again',
+  'I have no explanation for this',
+  'we do not talk about what happened next',
+  'the aftermath',
+  'ten seconds before the disaster',
+  'ten seconds after the disaster',
+  'proof that it happened',
+  'proof that it should not have',
+  'this is the reason we come back',
+  'this is the reason we said never again',
+  'I have looked at this one for four minutes',
+  'genuinely one of my favourites',
+  'genuinely one of the worst photos ever taken',
+  'the table, five minutes in',
+  'the table, three hours in',
+  'nothing happened for a very long time and it was perfect',
+  'peak of the day, arguably',
+  'low point of the day, definitely',
+  'this is not staged. it looks staged. it is not.',
+  'ok this one IS staged',
+  'somebody had to document it',
+  'do not ask',
+  'still not talking about it',
+  'a rare good hair day, wasted',
+  'the shoes did not survive',
+  'neither did the plan',
+  'the plan lasted about nine minutes',
+  'unbothered. moisturised. slightly sunburnt.',
+  'this is my roman empire',
+  'zoom in on the background, trust me',
+  'zoom in on the foreground, it is worse',
+  'behold',
+  'and then this happened',
+  'no notes, only love',
+  'and that was the day, more or less',
 ]
 
 const LINKS = [
@@ -112,8 +262,11 @@ const LINKS = [
 const SCENES = [
   {
     date: '2023-05-12', start: '09:14', weight: 45, cast: [NINA, AMIT, CHLOE, THEO, SOFIA],
+    // The first thing in the whole export, and so the first bubble anyone sees:
+    // a photograph with something written on it, rather than a bare image or a
+    // bare line of text.
+    lead: [NINA, 'WE HAVE THE KEYS 🔑'],
     open: [
-      [NINA, 'WE HAVE THE KEYS'],
       [AMIT, 'no way. no way!!'],
       [CHLOE, 'I am leaving work right now, do not touch anything until I get there'],
       [NINA, 'the garden is completely wild, bring shoes'],
@@ -835,6 +988,15 @@ for (const scene of SCENES) {
   const { date } = stamp(scene.date, time)
   const cast = scene.cast
 
+  if (scene.lead) {
+    const [leadSender, leadCaption] = scene.lead
+    const { fileStamp } = stamp(scene.date, time)
+    const name = nextName('PHOTO', 'jpg', fileStamp)
+    files.push({ name, kind: 'photo', seed: `${scene.date}-lead`, w: 1200, h: 800 })
+    attach(date, time, leadSender, name, leadCaption)
+    time = addSeconds(time, 30 + Math.floor(rand() * 60))
+  }
+
   for (const [sender, text] of scene.open) {
     if (typeof sender === 'function') {
       say(date, time, pick(cast), text)
@@ -869,7 +1031,7 @@ for (const scene of SCENES) {
   // The burst comes after the day's document/voice/link chatter, so the newest
   // item in the whole export is a photograph rather than a link card — which is
   // the first thing the grid shows, and the first frame of any recording.
-  const photoCount = Math.max(3, Math.round(scene.weight * scale))
+  const photoCount = Math.max(3, Math.round(scene.weight * scale) - (scene.lead ? 1 : 0))
   const captions = [...scene.captions]
   for (let i = 0; i < photoCount; i++) {
     const sender = pick(cast)
@@ -880,14 +1042,44 @@ for (const scene of SCENES) {
     const { fileStamp } = stamp(scene.date, time)
     const name = nextName('PHOTO', 'jpg', fileStamp)
     files.push({ name, kind: 'photo', seed: `${scene.date}-${i}`, w, h })
-    // Roughly a third of photos carry a caption, as in a real burst.
-    const caption = captions.length > 0 && chance(0.34) ? captions.shift() : ''
+    // Most photos carry a caption. The very first and very last photo of the
+    // whole export always do: they are the two the reader meets first — the
+    // opening tile of the grid, and the first message in the thread — and a
+    // bare image bubble is a poor advertisement for a reader whose whole point
+    // is the words around the picture.
+    const forced = seq === 1 || (scene === SCENES[SCENES.length - 1] && i === photoCount - 1)
+    // The day's own captions come first and are used up; after that a photo
+    // takes a generic one slightly less often, so a burst thins out towards the
+    // end the way a real one does rather than stopping dead.
+    const caption =
+      captions.length > 0 && (forced || chance(0.75))
+        ? captions.shift()
+        : forced || chance(0.45)
+          ? pick(GENERIC_CAPTIONS)
+          : ''
     attach(date, time, sender, name, caption)
     time = addSeconds(time, 15 + Math.floor(rand() * 75))
 
-    if (chance(0.18)) {
-      say(date, time, pick(cast.filter((c) => c !== sender)), pick(REACTIONS))
+    // A group chat is mostly people talking around the pictures, so the gaps
+    // between photos get more traffic than the photos themselves.
+    const others = cast.filter((c) => c !== sender)
+    if (chance(0.55)) {
+      say(date, time, pick(others), pick(REACTIONS))
       time = addSeconds(time, 20 + Math.floor(rand() * 90))
+      if (chance(0.3)) {
+        say(date, time, pick(others), pick(REACTIONS))
+        time = addSeconds(time, 20 + Math.floor(rand() * 80))
+      }
+    }
+    if (chance(0.26)) {
+      // One exchange, one line each, nobody speaking twice in a row.
+      let previous = null
+      for (const line of pick(BANTER)) {
+        const speaker = pick(cast.filter((c) => c !== previous))
+        say(date, time, speaker, line)
+        previous = speaker
+        time = addSeconds(time, 25 + Math.floor(rand() * 70))
+      }
     }
   }
 
