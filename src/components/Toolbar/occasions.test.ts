@@ -111,13 +111,13 @@ describe('an occasion list supplied from localStorage', () => {
 
   it('returns nothing for an occasion the list does not define', () => {
     localStorage.setItem(OCCASIONS_STORAGE_KEY, JSON.stringify(custom))
-    expect(eventSpans('pessah', 'all')).toEqual([])
+    expect(eventSpans('passover', 'all')).toEqual([])
   })
 })
 
 describe('the built-in winter season', () => {
   it('ends on the last day of February in a leap year and outside one', () => {
-    expect(dayOf(eventSpans('hiver', 2024)[0].to)).toBe('2024-02-29')
-    expect(dayOf(eventSpans('hiver', 2025)[0].to)).toBe('2025-02-28')
+    expect(dayOf(eventSpans('winter', 2024)[0].to)).toBe('2024-02-29')
+    expect(dayOf(eventSpans('winter', 2025)[0].to)).toBe('2025-02-28')
   })
 })

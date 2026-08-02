@@ -8,7 +8,7 @@
 //
 //   localStorage.setItem('wmr.data.occasions', JSON.stringify({ … }))
 //
-// A holiday is given as explicit dates because Pessah, Souccot and Hanouka
+// A holiday is given as explicit dates because Passover, Sukkot and Hanukkah
 // follow the Hebrew calendar — deriving them would mean shipping a whole
 // calendar conversion for a handful of fixed years, where a table is smaller,
 // exact and auditable. A season is given as a recurring month-day window, since
@@ -18,7 +18,7 @@ export interface OccasionDates {
   year: number
   /** YYYY-MM-DD, inclusive. */
   start: string
-  /** YYYY-MM-DD, inclusive. May fall in the following year (Hanouka does). */
+  /** YYYY-MM-DD, inclusive. May fall in the following year (Hanukkah does). */
   end: string
 }
 
@@ -57,8 +57,8 @@ export const DEFAULT_OCCASIONS: OccasionsConfig = {
   padDays: 3,
   occasions: [
     {
-      id: 'pessah',
-      label: 'Pessah',
+      id: 'passover',
+      label: 'Passover',
       dates: [
         { year: 2020, start: '2020-04-08', end: '2020-04-15' },
         { year: 2021, start: '2021-03-27', end: '2021-04-03' },
@@ -70,8 +70,8 @@ export const DEFAULT_OCCASIONS: OccasionsConfig = {
       ],
     },
     {
-      id: 'souccot',
-      label: 'Souccot',
+      id: 'sukkot',
+      label: 'Sukkot',
       dates: [
         { year: 2020, start: '2020-10-02', end: '2020-10-09' },
         { year: 2021, start: '2021-09-20', end: '2021-09-27' },
@@ -83,8 +83,8 @@ export const DEFAULT_OCCASIONS: OccasionsConfig = {
       ],
     },
     {
-      id: 'hanouka',
-      label: 'Hanouka',
+      id: 'hanukkah',
+      label: 'Hanukkah',
       dates: [
         { year: 2020, start: '2020-12-10', end: '2020-12-18' },
         { year: 2021, start: '2021-11-28', end: '2021-12-06' },
@@ -97,9 +97,9 @@ export const DEFAULT_OCCASIONS: OccasionsConfig = {
         { year: 2026, start: '2026-12-04', end: '2026-12-12' },
       ],
     },
-    { id: 'ete', label: 'Été', season: { from: '06-01', to: '08-31' } },
+    { id: 'summer', label: 'Summer', season: { from: '06-01', to: '08-31' } },
     // 02-29 is clamped to the last day of February, leap year or not.
-    { id: 'hiver', label: 'Hiver', season: { from: '01-01', to: '02-29' } },
+    { id: 'winter', label: 'Winter', season: { from: '01-01', to: '02-29' } },
   ],
 }
 

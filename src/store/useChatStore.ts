@@ -15,7 +15,7 @@ export interface Filters {
   dateFrom: number | null
   dateTo: number | null
   /**
-   * A set of disjoint spans, for a quick-event selection like "every Pessah":
+   * A set of disjoint spans, for a quick-event selection like "every Passover":
    * seven separate weeks across seven years cannot be written as one
    * `dateFrom`/`dateTo` range. Non-empty means it *replaces* that range rather
    * than narrowing it further — the two are alternative spellings of the same

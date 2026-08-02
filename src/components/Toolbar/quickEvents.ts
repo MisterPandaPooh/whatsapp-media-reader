@@ -86,5 +86,5 @@ export function eventSpans(eventId: string, year: number | 'all'): DateSpan[] {
 
 export function eventLabel(eventId: string, year: number | 'all'): string {
   const name = loadOccasions().occasions.find((o) => o.id === eventId)?.label ?? eventId
-  return year === 'all' ? `${name} · toutes les années` : `${name} ${year}`
+  return year === 'all' ? `${name} · all years` : `${name} ${year}`
 }

@@ -224,7 +224,7 @@
 
 /* Quick events — jump to a recurring moment (a holiday, a summer) without
    hunting for its dates on the calendar. A holiday's dates move every year, so
-   "every Pessah" is a set of disjoint spans, not one range. */
+   "every Passover" is a set of disjoint spans, not one range. */
 .quick-events {
   display: flex;
   flex-wrap: wrap;

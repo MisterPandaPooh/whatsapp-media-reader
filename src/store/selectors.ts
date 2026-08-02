@@ -25,7 +25,7 @@ function matches(item: MediaItem, filters: Filters, q: string): boolean {
   if (filters.starredOnly && !item.starred) return false
   // A quick-event selection replaces the single range rather than stacking
   // with it: both spell the same "when" filter, and combining them would mean
-  // intersecting "every Pessah" with one calendar month, which is never what
+  // intersecting "every Passover" with one calendar month, which is never what
   // picking an event from the list is asking for.
   if (filters.dateSpans.length) {
     if (!filters.dateSpans.some((s) => item.timestampMs >= s.from && item.timestampMs <= s.to)) {

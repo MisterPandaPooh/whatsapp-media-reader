@@ -52,10 +52,11 @@ export function Toolbar({ media, resultCount }: Props) {
   // than owning it: Reset clears the filter, and this follows via the effect below.
   const [eventId, setEventId] = useState('')
   const [eventYear, setEventYear] = useState<number | 'all'>('all')
-  // Off unless the flag is set. Read once per mount rather than per render: the
-  // flag and the list it drives are console-edited settings, and re-reading
-  // localStorage on every keystroke in the search box would be pure waste. Both
-  // take effect on the next reload, which is also when the reader would look.
+  // On unless the flag says otherwise. Read once per mount rather than per
+  // render: the flag and the list it drives are console-edited settings, and
+  // re-reading localStorage on every keystroke in the search box would be pure
+  // waste. Both take effect on the next reload, which is also when the reader
+  // would look.
   const [occasionsOn] = useState(() => isEnabled('occasions'))
   const [occasions] = useState(() => (isEnabled('occasions') ? quickEvents() : []))
   const [years] = useState(() => (isEnabled('occasions') ? eventYears() : []))
@@ -138,7 +139,7 @@ export function Toolbar({ media, resultCount }: Props) {
   }, [maxMs])
 
   // "Reset filters" clears the store but cannot reach this component's local
-  // selects, which would then still read "Pessah" over an unfiltered grid.
+  // selects, which would then still read "Passover" over an unfiltered grid.
   useEffect(() => {
     if (filters.dateSpans.length === 0) setEventId('')
   }, [filters.dateSpans])
@@ -412,7 +413,7 @@ export function Toolbar({ media, resultCount }: Props) {
                 </select>
               </label>
               <label className="quick-event-field">
-                <span className="quick-event-label">Année</span>
+                <span className="quick-event-label">Year</span>
                 <select
                   className="quick-event-select"
                   value={String(eventYear)}
@@ -423,7 +424,7 @@ export function Toolbar({ media, resultCount }: Props) {
                     if (eventId) applyEvent(eventId, y)
                   }}
                 >
-                  <option value="all">Toutes</option>
+                  <option value="all">All</option>
                   {years.map((y) => (
                     <option key={y} value={y}>
                       {y}
@@ -433,8 +434,8 @@ export function Toolbar({ media, resultCount }: Props) {
               </label>
               {filters.dateSpans.length > 0 && (
                 <span className="quick-event-hint">
-                  {filters.dateSpans.length} période{filters.dateSpans.length > 1 ? 's' : ''} · {resultCount} résultat
-                  {resultCount === 1 ? '' : 's'}
+                  {filters.dateSpans.length} period{filters.dateSpans.length > 1 ? 's' : ''} ·{' '}
+                  {resultCount} result{resultCount === 1 ? '' : 's'}
                 </span>
               )}
             </div>

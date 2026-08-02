@@ -84,9 +84,40 @@ An export made *without* media still works: the messages and the timeline are al
 - **↑ / ↓ in the panel** step through the media you've currently filtered to — so the panel becomes a way to read the chat one artefact at a time.
 - **Double-click a photo or video** for the fullscreen lightbox, which pages through the same filtered set.
 - **Star** anything; stars survive a reload. So does the chat itself — reopen the tab and it's still there.
+- **Occasions** — in the DATE popover, jump the filter to Passover, Sukkot, Hanukkah, Summer or Winter, for one year or all of them at once. Holidays get three days of slack either side, because the photos worth finding start with the drive out and end with the drive home.
 - **Import chat…** in the header swaps in a different export; **Close chat** clears it and returns you to the drop screen. Importing replaces the current chat.
 
 It handles a big export without complaint: the zip is streamed one file at a time rather than held in memory, extraction runs in a worker so the UI never freezes, and the grid is virtualized. A chat with thousands of files opens straight into a usable library.
+
+### Occasions, and turning them off
+
+The occasion list is data rather than code. Set `wmr.data.occasions` in the browser console to replace it — a different calendar, a different language, or years past the built-in table (2020–2026) — then reload.
+
+```js
+localStorage.setItem('wmr.data.occasions', JSON.stringify({
+  padDays: 3,
+  occasions: [
+    // Explicit days, because the Hebrew calendar can't be derived from the
+    // Gregorian one. `end` may fall in the following year, as Hanukkah does.
+    { id: 'thanksgiving', label: 'Thanksgiving', dates: [
+      { year: 2025, start: '2025-11-27', end: '2025-11-28' },
+    ]},
+    // A season: the same MM-DD window every year. A day past the end of the
+    // month is clamped, so '02-29' means "end of February" in any year.
+    { id: 'spring', label: 'Spring', season: { from: '03-01', to: '05-31' } },
+  ],
+}))
+```
+
+`padDays` widens dated occasions only — a season is already approximate, and padding June would just bleed into May. The year dropdown is built from the years your dated occasions mention, unless you give an explicit `years: [...]`. A malformed value is ignored in favour of the built-in list, with a warning, so a typo can't break the toolbar.
+
+To hide the pickers entirely:
+
+```js
+localStorage.setItem('wmr.flag.occasions', 'off')
+```
+
+`off`, `0`, `false`, `no` and `disabled` all hide them; `on`, `1`, `true`, `yes` and `enabled` bring them back. Anything else falls through to the default, which is on.
 
 ## What it isn't
 
