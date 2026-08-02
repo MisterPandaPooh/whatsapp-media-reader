@@ -25,3 +25,6 @@ dist-ssr
 
 # Claude Code local state (worktrees, launch config)
 .claude/
+
+# Generated demo export (scripts/make-demo-export.mjs) — ~100 MB, never committed
+demo-export/
