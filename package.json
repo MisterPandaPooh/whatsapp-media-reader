@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-media-reader",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Browse an exported WhatsApp chat with the media as the index and the conversation as the detail view. Runs entirely in your browser.",
   "license": "MIT",
   "author": "MisterPandaPooh",
