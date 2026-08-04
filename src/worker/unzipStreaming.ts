@@ -15,9 +15,14 @@ import { Unzip, UnzipInflate } from 'fflate'
  * signature, which is what actually produces these chunks — every chunk fflate hands
  * back is backed by a fresh `ArrayBuffer`, never a `SharedArrayBuffer`. Keeping that
  * precision here (instead of widening to plain `Uint8Array`) lets callers pass chunks
- * straight into DOM APIs like `FileSystemWritableFileStream.write()`, whose
- * `FileSystemWriteChunkType` requires an `ArrayBuffer`-backed view, without needing an
- * unsafe cast at the call site.
+ * into DOM APIs whose `FileSystemWriteChunkType` requires an `ArrayBuffer`-backed
+ * view, without needing an unsafe cast at the call site.
+ *
+ * A chunk is a *view*, not a whole buffer — usually a subarray of the slice being
+ * pushed through the decompressor. Anything handing one to a browser API that takes
+ * a BufferSource must make sure the view covers its buffer first: WebKit's
+ * `FileSystemWritableFileStream.write()` ignores `byteOffset`/`byteLength` and writes
+ * the entire backing `ArrayBuffer`. See `exactly()` in zipExtract.ts.
  */
 export type UnzipChunkHandler = (chunk: Uint8Array<ArrayBuffer>, isLast: boolean) => void | Promise<void>
 

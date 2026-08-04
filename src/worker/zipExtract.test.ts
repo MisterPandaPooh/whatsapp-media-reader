@@ -10,6 +10,9 @@ import { extractZipToOpfs } from './zipExtract'
 // media), not to verify actual file-system persistence.
 function createStubOpfsRoot() {
   const written: Record<string, Uint8Array[]> = {}
+  // Every view handed to write(), kept as-is so a test can inspect whether it
+  // covers its own backing buffer.
+  const writes: Uint8Array[] = []
 
   const dirHandle = {
     getFileHandle: async (name: string) => {
@@ -18,6 +21,7 @@ function createStubOpfsRoot() {
       return {
         createWritable: async () => ({
           write: async (chunk: Uint8Array) => {
+            writes.push(chunk)
             chunks.push(chunk)
           },
           close: async () => {},
@@ -31,7 +35,7 @@ function createStubOpfsRoot() {
     removeEntry: async () => {},
   }
 
-  return { root, written }
+  return { root, written, writes }
 }
 
 function concatWritten(chunks: Uint8Array[]): Uint8Array {
@@ -271,5 +275,41 @@ describe('extractZipToOpfs treats zip entry names as hostile', () => {
     // The outer `_chat.txt` claims the transcript first; the nested one is flattened
     // to the same basename, so what matters is that neither escapes the folder.
     expect(result.chatText).toBe('CHAT')
+  })
+})
+
+describe('what is handed to FileSystemWritableFileStream.write()', () => {
+  it('always passes a view that covers its whole backing buffer', async () => {
+    // fflate hands back subarrays of the slice being pushed through the
+    // decompressor. Chromium honours a view's byteOffset/byteLength; WebKit
+    // writes the entire backing ArrayBuffer, so a 110 KB photo landed on disk
+    // as the whole 1 MB slice — a megabyte of mostly other files' bytes, which
+    // decodes to nothing. Every tile in Safari failed to load, and a 108 MB
+    // export took 1.08 GB of origin storage.
+    //
+    // Asserting the *shape* of what we write, rather than the bytes that come
+    // out, is what makes this hold on an engine this test cannot run in.
+    const { root, writes, written } = createStubOpfsRoot()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(navigator as any).storage = { getDirectory: async () => root }
+
+    const photo = new Uint8Array(3000)
+    for (let i = 0; i < photo.length; i++) photo[i] = i % 251
+    const zipBytes = zipSync(
+      { '_chat.txt': strToU8('REAL CHAT CONTENT'), 'IMG-1.jpg': photo },
+      // Stored, not deflated — what a real export contains, and the case where
+      // fflate passes a subarray of the push slice straight through.
+      { level: 0 },
+    )
+
+    await extractZipToOpfs(zipBytes, 'test-folder', () => {})
+
+    expect(writes.length).toBeGreaterThan(0)
+    for (const view of writes) {
+      expect(view.byteOffset).toBe(0)
+      expect(view.byteLength).toBe(view.buffer.byteLength)
+    }
+    // And the bytes are still the right ones after the copy.
+    expect(Array.from(concatWritten(written['IMG-1.jpg']))).toEqual(Array.from(photo))
   })
 })

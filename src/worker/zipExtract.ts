@@ -33,6 +33,31 @@ function isAppleDoubleEntry(path: string, basename: string): boolean {
   return basename.startsWith('._')
 }
 
+/**
+ * A view whose bytes are *exactly* the bytes meant for the file.
+ *
+ * fflate hands back subarrays of a larger buffer, and for a stored
+ * (uncompressed) entry — which is what both a WhatsApp export and this project's
+ * own demo archive contain — that subarray points into the 1 MB slice being
+ * pushed through the decompressor.
+ *
+ * Chromium's `FileSystemWritableFileStream.write()` honours a view's
+ * `byteOffset`/`byteLength`. WebKit writes the whole backing `ArrayBuffer`, so
+ * every media file arrived on disk as the entire 1 MB slice: a 110 KB photo
+ * stored as a megabyte of mostly other files' bytes. Nothing decoded, so every
+ * tile in Safari failed with `error loading url blob:…`, and a 108 MB export
+ * occupied 1.08 GB of origin storage — ten times its real size, which is how the
+ * bug was finally spotted.
+ *
+ * Copying only when the view does not already cover its buffer keeps the case
+ * that was always correct free of an extra allocation.
+ */
+function exactly(chunk: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+  return chunk.byteOffset === 0 && chunk.byteLength === chunk.buffer.byteLength
+    ? chunk
+    : chunk.slice()
+}
+
 export async function extractZipToOpfs(
   zipBytes: ZipSource,
   folderName: string,
@@ -77,7 +102,7 @@ export async function extractZipToOpfs(
           const fileHandle = await chatDir.getFileHandle(cleanName, { create: true })
           writable = await fileHandle.createWritable()
         }
-        if (chunk.length) await writable.write(chunk)
+        if (chunk.length) await writable.write(exactly(chunk))
         if (isLast) await writable.close()
       }
     }
